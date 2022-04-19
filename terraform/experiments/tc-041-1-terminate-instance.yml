@@ -1,0 +1,37 @@
+version: 1.0.0
+title: TC-041-1
+description: Terminate EKS EC2 Worker node instance
+configuration:
+  test_instance_tag_key: 'tag:Name'
+  test_instance_tag_value: '*.placeholder.k8s.local'
+  name_space: 'resiliency' 
+  output_bucket: 'resiliency-testing-experiments'
+  aws_region: 'us-east-1'
+
+steady-state-hypothesis:
+#  Title: Pod is healthy
+#  probes:
+#  - type: probe
+#    name: pod-healthy
+#    Tolerance: True
+#    provider: 
+#      type: python
+#      module: resiliencyvr.k8s.probes
+#      func: pod_healthy
+method:
+# - type: action
+#   name: Establish load of 1000
+#   provider:
+#     type: python
+#     module: resiliencyvr.load.actions
+#     func: load_generate
+#     arguments:
+#        count: 1000
+  - type: action
+    name: Terminate an EKS worker node EC2 instance
+    provider:
+      type: python
+      module: chaosaws.ec2.actions
+      func: terminate_instance
+      arguments:
+        filters: [ { 'Name': 'Tag:${test_instance_tag_key}', 'Value': '${test_instance_tag_value}' } ]

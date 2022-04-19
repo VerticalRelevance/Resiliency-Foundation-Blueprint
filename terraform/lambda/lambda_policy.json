@@ -1,0 +1,50 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [ 
+      {
+        "Sid": "SSMPermissions",
+        "Action": [
+          "ssm:SendCommand"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
+        "Sid": "S3Permissions",
+        "Action": [
+          "s3:GetObject",
+          "s3:Listbucket",
+          "s3:PutObject"
+        ],
+        "Effect": "Allow",
+        "Resource": [ 
+          "arn:aws:s3:::resiliency-testing-experiments",
+          "arn:aws:s3:::resiliency-testing-experiments/*"
+        ]
+      },
+      {
+        "Sid": "EC2Permissions",
+        "Action": [
+          "ec2:DescribeInstances"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
+        "Sid": "EC2ResourceLevelPermissions",
+        "Action": [
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:StopInstances",
+          "ec2:StartInstances"
+        ],
+        "Effect": "Allow",
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "ec2:ResourceTag/Type": "Resiliency"
+          }
+        }
+      }
+    ]
+}
