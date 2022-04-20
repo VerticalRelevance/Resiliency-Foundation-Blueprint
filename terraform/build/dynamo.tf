@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "terraform-backend" {
-  name           = "resiliencyvr_terraform_state"
+  name           = "resiliency_terraform_state"
   read_capacity  = 5
   write_capacity = 5
   hash_key       = "LockID"

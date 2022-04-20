@@ -44,7 +44,7 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       "Action": [
         "codestar-connections:UseConnection"
       ],
-      "Resource": "${data.aws_codestarconnections_connection.vr_github.arn}"
+      "Resource": "${data.aws_codestarconnections_connection.github.arn}"
     },
     {
       "Effect": "Allow",
@@ -102,9 +102,9 @@ resource "aws_iam_role_policy" "resiliencyvr_codebuild_package_policy" {
           "codeartifact:GetRepositoryEndpoint"
       ],
       "Resource": [
-          "${aws_codeartifact_repository.vr_ca_dev.arn}",
-          "${aws_codeartifact_domain.vr_ca_dev_domain.arn}/*",
-          "${aws_codeartifact_domain.vr_ca_dev_domain.arn}"  
+          "${aws_codeartifact_repository.res_ca_dev.arn}",
+          "${aws_codeartifact_domain.res_ca_dev_domain.arn}/*",
+          "${aws_codeartifact_domain.res_ca_dev_domain.arn}"  
           
       ]
     },
@@ -177,9 +177,9 @@ resource "aws_iam_role_policy" "resiliencyvr_codebuild_lambda_policy" {
           "codeartifact:GetRepositoryEndpoint"
       ],
       "Resource": [
-          "${aws_codeartifact_repository.vr_ca_dev.arn}",
-          "${aws_codeartifact_domain.vr_ca_dev_domain.arn}/*",
-          "${aws_codeartifact_domain.vr_ca_dev_domain.arn}"  
+          "${aws_codeartifact_repository.res_ca_dev.arn}",
+          "${aws_codeartifact_domain.res_ca_dev_domain.arn}/*",
+          "${aws_codeartifact_domain.res_ca_dev_domain.arn}"  
           
       ]
     },

@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "codepipeline_bucket" {
-  bucket = "resiliencyvr-package-build-bucket"
+  bucket = "resiliency-package-build-bucket"
 }
 
 resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
@@ -8,7 +8,7 @@ resource "aws_s3_bucket_acl" "codepipeline_bucket_acl" {
 }
 
 resource "aws_s3_bucket" "backend_bucket" {
-  bucket = "resiliencyvr-terraform-backend-bucket"
+  bucket = "resiliency-terraform-backend-bucket"
 }
 
 resource "aws_s3_bucket_acl" "backend_bucket_acl" {

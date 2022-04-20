@@ -1,7 +1,7 @@
 variable "lambda_relative_path" {
   description = "Used in the Lambda build"
   type        = string
-  default     = "/../"
+  default     = "/../resiliency_code/"
 }
 
 variable "lambda_log_level" {

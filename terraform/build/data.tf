@@ -1,4 +1,4 @@
-data "aws_codestarconnections_connection" "vr_github" {
+data "aws_codestarconnections_connection" "github" {
   arn = var.codestar_connection_arn
 }
 

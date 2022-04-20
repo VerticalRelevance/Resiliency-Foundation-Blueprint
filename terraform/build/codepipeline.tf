@@ -19,7 +19,7 @@ resource "aws_codepipeline" "resiliencyvr_build" {
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn    = data.aws_codestarconnections_connection.vr_github.arn
+        ConnectionArn    = data.aws_codestarconnections_connection.github.arn
         FullRepositoryId = var.repository_id
         BranchName       = var.repository_branch
       }
@@ -66,7 +66,7 @@ resource "aws_codepipeline" "lambda_build" {
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn    = data.aws_codestarconnections_connection.vr_github.arn
+        ConnectionArn    = data.aws_codestarconnections_connection.github.arn
         FullRepositoryId = var.repository_id
         BranchName       = var.repository_branch
       }

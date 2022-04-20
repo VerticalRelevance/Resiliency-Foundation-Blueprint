@@ -11,5 +11,6 @@ phases:
 
   build:
     commands:
+      - cd resiliency_code
       - python3 -m build --wheel
       - twine upload --repository codeartifact ./dist/*
