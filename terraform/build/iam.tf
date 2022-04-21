@@ -225,14 +225,32 @@ resource "aws_iam_role_policy" "resiliencyvr_codebuild_lambda_policy" {
       {
       "Effect": "Allow",
       "Action": [
-        "iam:*"
+        "iam:PassRole"
       ],
-      "Resource": "*"
+      "Resource": "*",
+      "Condition": {
+          "StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}
+      }
     },
       {
       "Effect": "Allow",
       "Action": [
-        "lambda:*"
+        "iam:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+          "StringEquals": {"aws:ResourceTag/Team": "ResiliencyTeam"}
+      }
+    },
+      {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:GetFunction",
+        "lambda:List*",
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetCodeSigningConfig",
+        "lambda:DeleteFunction"
       ],
       "Resource": "*"
     }
