@@ -39,5 +39,5 @@ class ResiliencyFoundationStack(core.Stack):
         super().__init__(scope, id)
 
         #SNS TOPIC WHICH EMAILS/TEXTS THE PROCESSED MESSAGE
-        email_list = ["ebegalka@verticalrelevance.com"]
+        email_list = ["example@verticalrelevance.com"]
         topic_arn = ResiliencyFoundationStack.createTopic(self,email_list)
