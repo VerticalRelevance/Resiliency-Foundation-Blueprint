@@ -159,7 +159,7 @@ class ResiliencyFoundationStack(core.Stack):
         }
 
 
-    def createCodeBuildLambdaIAMResources(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn,backend_bucket_arn,dynamodb_table_terraform_backend_arn):
+    def createCodeBuildLambdaIAMResources(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn,backend_bucket_arn):
         resiliencyvr_codebuild_lambda_policy = iam.ManagedPolicy(
             self, "resiliencyvr_codebuild_lambda_policy",
             managed_policy_name="resiliencyvr_codebuild_lambda_policy",
@@ -212,15 +212,6 @@ class ResiliencyFoundationStack(core.Stack):
                         codepipeline_bucket_arn + "/*",
                         backend_bucket_arn,
                         backend_bucket_arn + "/*",
-                    ],
-                ),
-                iam.PolicyStatement(effect= 
-                    iam.Effect.ALLOW,
-                    actions= [
-                        "dynamodb:*"
-                    ],
-                    resources=[
-                        dynamodb_table_terraform_backend_arn
                     ],
                 ),
                 iam.PolicyStatement(effect= 
@@ -303,7 +294,6 @@ class ResiliencyFoundationStack(core.Stack):
         codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
         codeartifact_domain_res_ca_dev_domain_arn = "arn:aws:codeartifact:us-west-2:111122223333:domain/my_domain"
         backend_bucket_arn = ResiliencyFoundationStack.createBackendBucket(self).bucket_arn
-        dynamodb_table_terraform_backend_arn = "arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable"
 
         codepipeline_iam_resources = ResiliencyFoundationStack.createCodePipelineIAMResources(self,
             codepipeline_bucket_arn,
@@ -325,7 +315,6 @@ class ResiliencyFoundationStack(core.Stack):
             codeartifact_domain_res_ca_dev_domain_arn,
             codepipeline_bucket_arn,
             backend_bucket_arn,
-            dynamodb_table_terraform_backend_arn
         )
         codebuild_lambda_policy = codebuild_lambda_iam_resources["policy"]
         codebuild_lambda_role = codebuild_lambda_iam_resources["role"]
