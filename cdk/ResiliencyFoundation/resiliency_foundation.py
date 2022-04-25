@@ -23,10 +23,30 @@ from aws_cdk import (
     aws_sns as sns,
     aws_sns_subscriptions as subscriptions,
     aws_stepfunctions as sfn,
+    aws_kms as kms,
+    aws_codeartifact as codeartifact,
+    aws_elasticsearch as elasticsearch,
     core
 )
 
 class ResiliencyFoundationStack(core.Stack):
+    def createCodeArtifactory(self):
+        encryption_key = kms.Key(self, "res-ca-dev-repo-key", description="res-ca-dev repository key")
+
+        cfn_domain = codeartifact.CfnDomain(self, "MyCfnDomain",
+            domain_name="res-ca-devckd",
+            # encryption_at_rest_options=elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
+            #     enabled=False,
+            #     kms_key_id=encryption_key.key_id
+            # ),
+        )
+
+        cfn_repository = codeartifact.CfnRepository(self, "MyCfnRepository",
+            domain_name=cfn_domain.domain_name,
+            repository_name="pypi-store",
+            external_connections=["public:pypi"],
+        )
+
     def createCodePipelineBucket(self):
         code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket2",access_control=s3.BucketAccessControl.PRIVATE)
         return code_pipeline_bucket
@@ -289,6 +309,8 @@ class ResiliencyFoundationStack(core.Stack):
         super().__init__(scope, id)
 
         #codepipeline_bucket_arn = "arn:aws:s3:::bucket_name"
+
+        ResiliencyFoundationStack.createCodeArtifactory(self)
         codepipeline_bucket_arn = ResiliencyFoundationStack.createCodePipelineBucket(self).bucket_arn
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
         codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
