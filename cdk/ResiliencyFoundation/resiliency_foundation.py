@@ -1,12 +1,14 @@
 from cgi import test
 import email
 from fileinput import filename
+from multiprocessing import Condition
 import os
 from pyclbr import Function
 from sqlite3 import Timestamp
 from ssl import _create_default_https_context
 import time
 from zipfile import ZipFile
+import json
 from aws_cdk import (
     aws_iam as iam,
     aws_s3 as s3,
@@ -25,19 +27,305 @@ from aws_cdk import (
 )
 
 class ResiliencyFoundationStack(core.Stack):
+    def createCodePipelineBucket(self):
+        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket2",access_control=s3.BucketAccessControl.PRIVATE)
+        return code_pipeline_bucket
     
-    def createTopic(self,email_list):
-        topic = sns.Topic(self,"topic")
-        delivered = topic.metric_number_of_notifications_delivered()
-        failed = topic.metric_number_of_notifications_failed()
-        for email in email_list:
-            topic.add_subscription(subscriptions.EmailSubscription(email))
+    def createBackendBucket(self):
+        backend_bucket = s3.Bucket(self, "backend_bucket", bucket_name="resiliency-terraform-backend-bucket2",access_control=s3.BucketAccessControl.PRIVATE,versioned=True)
+        return backend_bucket
 
-        return topic.topic_arn
+    def createCodePipelineIAMResources(self,codepipeline_bucket_arn,codestar_connections_github_arn):
+        codepipeline_policy = iam.ManagedPolicy(
+            self, "codepipeline_policy",
+            managed_policy_name="codepipeline_policy",
+            statements=[
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "s3:GetObject",
+                        "s3:GetObjectVersion",
+                        "s3:GetBucketVersioning",
+                        "s3:PutObjectAcl",
+                        "s3:PutObject"
+                    ],
+                    resources=[
+                        codepipeline_bucket_arn,
+                        codepipeline_bucket_arn+"/*",
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codestar-connections:UseConnection"
+                    ],
+                    resources=[
+                        codestar_connections_github_arn
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codebuild:BatchGetBuilds",
+                        "codebuild:StartBuild"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+            ]
+        )
+        codepipeline_role = iam.Role(
+            self, "codepipeline_role", 
+            assumed_by=iam.ServicePrincipal("codepipeline.amazonaws.com"),
+            managed_policies=[codepipeline_policy],
+            #max_session_duration=core.Duration.seconds(43200),
+            path=None,
+            role_name="resiliencyvr-package-build-pipeline-role"
+        )
+        return {
+            "policy" : codepipeline_policy,
+            "role" : codepipeline_role
+        }
+
+    def createCodeBuildPackageIAMResources(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn):
+        resiliencyvr_codebuild_package_policy = iam.ManagedPolicy(
+            self, "resiliencyvr_codebuild_package_policy",
+            managed_policy_name="resiliencyvr_codebuild_package_policy",
+            statements=[
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codeartifact:GetAuthorizationToken",
+                        "codeartifact:GetRepositoryEndpoint"
+                    ],
+                    resources=[
+                        codeartifact_repository_res_ca_dev_arn,
+                        codeartifact_domain_res_ca_dev_domain_arn+"/*",
+                        codeartifact_domain_res_ca_dev_domain_arn,
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "sts:GetServiceBearerToken"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                    # conditions=[{
+                    #     "StringEquals":{
+                    #         "sts:AWSServiceName": ["codeartifact.amazonaws.com"],
+                    #     },
+                    # }
+                    # ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "s3:*"
+                    ],
+                    resources=[
+                        codepipeline_bucket_arn,
+                        codepipeline_bucket_arn + "/*",
+                    ],
+                ),
+            ],
+        )
+
+        resiliencyvr_codebuild_package_role = iam.Role(
+            self, "resiliencyvr_codebuild_package_role", 
+            assumed_by=iam.ServicePrincipal("codebuild.amazonaws.com"),
+            managed_policies=[resiliencyvr_codebuild_package_policy],
+            #max_session_duration=core.Duration.seconds(43200),
+            path=None,
+            role_name="resiliencyvr-codebuild-package-role"
+        )
+
+        return {
+            "policy" : resiliencyvr_codebuild_package_policy,
+            "role" : resiliencyvr_codebuild_package_role
+        }
+
+
+    def createCodeBuildLambdaIAMResources(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn,backend_bucket_arn,dynamodb_table_terraform_backend_arn):
+        resiliencyvr_codebuild_lambda_policy = iam.ManagedPolicy(
+            self, "resiliencyvr_codebuild_lambda_policy",
+            managed_policy_name="resiliencyvr_codebuild_lambda_policy",
+            statements=[
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codeartifact:GetAuthorizationToken",
+                        "codeartifact:GetRepositoryEndpoint"
+                    ],
+                    resources=[
+                        codeartifact_repository_res_ca_dev_arn,
+                        codeartifact_domain_res_ca_dev_domain_arn+"/*",
+                        codeartifact_domain_res_ca_dev_domain_arn
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "sts:GetServiceBearerToken"
+                    ],
+                    resources=[
+                        "*"  
+                    ],
+                    # conditions=[{
+                    #     "StringEquals":{
+                    #         "sts:AWSServiceName": "codeartifact.amazonaws.com",
+                    #     }
+                    # }
+                    # ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "s3:*"
+                    ],
+                    resources=[
+                        codepipeline_bucket_arn,
+                        codepipeline_bucket_arn + "/*",
+                        backend_bucket_arn,
+                        backend_bucket_arn + "/*",
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "dynamodb:*"
+                    ],
+                    resources=[
+                        dynamodb_table_terraform_backend_arn
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "kms:*"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "iam:PassRole"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                    # conditions=[{
+                    #     "StringEquals":{
+                    #         "iam:PassedToService": "lambda.amazonaws.com",
+                    #     }
+                    # }
+                    # ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "iam:*"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                    # conditions=[{
+                    #     "StringEquals":{
+                    #         "aws:ResourceTag/Team": "ResiliencyTeam",
+                    #     }
+                    # }
+                    # ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "lambda:CreateFunction",
+                        "lambda:GetFunction",
+                        "lambda:List*",
+                        "lambda:GetFunctionCodeSigningConfig",
+                        "lambda:GetCodeSigningConfig",
+                        "lambda:DeleteFunction"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+            ]
+        )
+
+        resiliencyvr_codebuild_lambda_role = iam.Role(
+                self, "resiliencyvr_codebuild_lambda_role", 
+                assumed_by=iam.ServicePrincipal("codebuild.amazonaws.com"),
+                managed_policies=[resiliencyvr_codebuild_lambda_policy],
+                #max_session_duration=core.Duration.seconds(43200),
+                path=None,
+                role_name="resiliencyvr-codebuild-lambda-role"
+            )
+        
+        return {
+            "policy" : resiliencyvr_codebuild_lambda_policy,
+            "role" : resiliencyvr_codebuild_lambda_role
+        }
+
 
     def __init__(self, scope, id):
         super().__init__(scope, id)
 
-        #SNS TOPIC WHICH EMAILS/TEXTS THE PROCESSED MESSAGE
-        email_list = ["example@verticalrelevance.com"]
-        topic_arn = ResiliencyFoundationStack.createTopic(self,email_list)
+        #codepipeline_bucket_arn = "arn:aws:s3:::bucket_name"
+        codepipeline_bucket_arn = ResiliencyFoundationStack.createCodePipelineBucket(self).bucket_arn
+        codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
+        codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
+        codeartifact_domain_res_ca_dev_domain_arn = "arn:aws:codeartifact:us-west-2:111122223333:domain/my_domain"
+        backend_bucket_arn = ResiliencyFoundationStack.createBackendBucket(self).bucket_arn
+        dynamodb_table_terraform_backend_arn = "arn:aws:dynamodb:us-east-2:123456789012:table/myDynamoDBTable"
+
+        codepipeline_iam_resources = ResiliencyFoundationStack.createCodePipelineIAMResources(self,
+            codepipeline_bucket_arn,
+            codestar_connections_github_arn
+        )
+        codepipeline_policy = codepipeline_iam_resources["policy"]
+        codepipeline_role = codepipeline_iam_resources["role"]
+
+        codebuild_package_iam_resources = ResiliencyFoundationStack.createCodeBuildPackageIAMResources(self,
+            codeartifact_repository_res_ca_dev_arn,
+            codeartifact_domain_res_ca_dev_domain_arn,
+            codepipeline_bucket_arn
+        )
+        codebuild_package_policy = codebuild_package_iam_resources["policy"]
+        codebuild_package_role = codebuild_package_iam_resources["role"]
+
+        codebuild_lambda_iam_resources = ResiliencyFoundationStack.createCodeBuildLambdaIAMResources(self,
+            codeartifact_repository_res_ca_dev_arn,
+            codeartifact_domain_res_ca_dev_domain_arn,
+            codepipeline_bucket_arn,
+            backend_bucket_arn,
+            dynamodb_table_terraform_backend_arn
+        )
+        codebuild_lambda_policy = codebuild_lambda_iam_resources["policy"]
+        codebuild_lambda_role = codebuild_lambda_iam_resources["role"]
