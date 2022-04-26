@@ -1,5 +1,6 @@
 from cgi import test
 import email
+from email import policy
 from fileinput import filename
 from multiprocessing import Condition
 import os
@@ -30,11 +31,45 @@ from aws_cdk import (
 )
 
 class ResiliencyFoundationStack(core.Stack):
-    def createCodeArtifactory(self):
+    def createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role):
+        cfn_domain_permissions_policy = iam.PolicyDocument(
+            statements=[
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codeartifact:PublishPackageVersion"
+                    ],
+                    principals=[iam.ArnPrincipal(codebuild_package_role.role_arn)],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "codeartifact:DescribePackageVersion",
+                        "codeartifact:DescribeRepository",
+                        "codeartifact:GetPackageVersionReadme",
+                        "codeartifact:GetRepositoryEndpoint",
+                        "codeartifact:ListPackages",
+                        "codeartifact:ListPackageVersions",
+                        "codeartifact:ListPackageVersionAssets",
+                        "codeartifact:ListPackageVersionDependencies",
+                        "codeartifact:ReadFromRepository"
+                    ],
+                    principals=[iam.ArnPrincipal(codebuild_lambda_role.role_arn)],
+                    resources=[
+                        "*"
+                    ],
+                ),
+            ]
+        )
+
         encryption_key = kms.Key(self, "res-ca-dev-repo-key", description="res-ca-dev repository key")
 
         cfn_domain = codeartifact.CfnDomain(self, "MyCfnDomain",
             domain_name="res-ca-devckd",
+            permissions_policy_document=cfn_domain_permissions_policy,
             # encryption_at_rest_options=elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
             #     enabled=False,
             #     kms_key_id=encryption_key.key_id
@@ -56,6 +91,8 @@ class ResiliencyFoundationStack(core.Stack):
         )
 
         cfn_repository_res_ca_dev.add_depends_on(cfn_domain)
+
+        
 
     def createCodePipelineBucket(self):
         code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket3",access_control=s3.BucketAccessControl.PRIVATE)
@@ -320,7 +357,6 @@ class ResiliencyFoundationStack(core.Stack):
 
         #codepipeline_bucket_arn = "arn:aws:s3:::bucket_name"
 
-        ResiliencyFoundationStack.createCodeArtifactory(self)
         codepipeline_bucket_arn = ResiliencyFoundationStack.createCodePipelineBucket(self).bucket_arn
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
         codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
@@ -350,3 +386,4 @@ class ResiliencyFoundationStack(core.Stack):
         )
         codebuild_lambda_policy = codebuild_lambda_iam_resources["policy"]
         codebuild_lambda_role = codebuild_lambda_iam_resources["role"]
+        ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role)
