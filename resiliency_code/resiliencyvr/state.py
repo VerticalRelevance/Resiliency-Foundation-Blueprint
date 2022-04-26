@@ -1,7 +1,6 @@
 import json
 
 import boto3
-from chaosaws import aws_client
 from chaoslib.types import Configuration
 from logzero import logger
 

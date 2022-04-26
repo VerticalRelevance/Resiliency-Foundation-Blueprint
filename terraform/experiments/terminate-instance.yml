@@ -16,4 +16,4 @@ method:
       module: chaosaws.ec2.actions
       func: terminate_instance
       arguments:
-        filters: [ { 'Name': 'Tag:${test_instance_tag_key}', 'Value': '${test_instance_tag_value}' } ]
+        filters: [ { 'Name': '${test_instance_tag_key}', 'Value': '${test_instance_tag_value}' } ]
