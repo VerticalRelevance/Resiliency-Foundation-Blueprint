@@ -321,11 +321,10 @@ class ResiliencyFoundationStack(core.Stack):
 
         return resiliencyvr_codebuild_lambda_policy
 
-    def createIAMRole(self,name,policy,service_principal):
+    def createIAMRole(self,name,service_principal):
         role = iam.Role(
                 self, name, 
                 assumed_by=iam.ServicePrincipal(service_principal),
-                managed_policies=[policy],
                 #max_session_duration=core.Duration.seconds(43200),
                 path=None,
                 role_name=name
@@ -339,34 +338,44 @@ class ResiliencyFoundationStack(core.Stack):
 
         #codepipeline_bucket_arn = "arn:aws:s3:::bucket_name"
 
+        codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
+            "resiliencyvr-package-build-pipeline-role",
+            "codepipeline.amazonaws.com",
+        )
+        codebuild_package_role = ResiliencyFoundationStack.createIAMRole(self,
+            "resiliencyvr_codebuild_package_role",
+            "codebuild.amazonaws.com",
+        )
+        codebuild_lambda_role = ResiliencyFoundationStack.createIAMRole(self,
+            "resiliencyvr_codebuild_lambda_role",
+            "codebuild.amazonaws.com",
+        )
+
+        codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role)
+        cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
+        cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
+
         codepipeline_bucket_arn = ResiliencyFoundationStack.createCodePipelineBucket(self).bucket_arn
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
-        codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
-        codeartifact_domain_res_ca_dev_domain_arn = "arn:aws:codeartifact:us-west-2:111122223333:domain/my_domain"
+        #codeartifact_domain_res_ca_dev_domain_arn = "arn:aws:codeartifact:us-west-2:111122223333:domain/my_domain"
+        codeartifact_domain_res_ca_dev_domain_arn = cfn_domain_res_ca_devckd.attr_arn
+        #codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
+        codeartifact_repository_res_ca_dev_arn = cfn_repository_res_ca_dev.attr_arn
+
         backend_bucket_arn = ResiliencyFoundationStack.createBackendBucket(self).bucket_arn
 
         codepipeline_policy = ResiliencyFoundationStack.createCodePipelineIAMPolicy(self,
             codepipeline_bucket_arn,
             codestar_connections_github_arn
         )
-
-        codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
-            "resiliencyvr-package-build-pipeline-role",
-            codepipeline_policy,
-            "codepipeline.amazonaws.com",
-        )
+        codepipeline_policy.attach_to_role(codepipeline_role)
 
         codebuild_package_policy = ResiliencyFoundationStack.createCodeBuildPackageIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
             codepipeline_bucket_arn
         )
-        
-        codebuild_package_role = ResiliencyFoundationStack.createIAMRole(self,
-            "resiliencyvr_codebuild_package_role",
-            codebuild_package_policy,
-            "codebuild.amazonaws.com",
-        )
+        codebuild_package_policy.attach_to_role(codebuild_package_role)
 
         codebuild_lambda_policy = ResiliencyFoundationStack.createCodeBuildLambdaIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
@@ -374,12 +383,6 @@ class ResiliencyFoundationStack(core.Stack):
             codepipeline_bucket_arn,
             backend_bucket_arn,
         )
-        codebuild_lambda_role = ResiliencyFoundationStack.createIAMRole(self,
-            "resiliencyvr_codebuild_lambda_role",
-            codebuild_lambda_policy,
-            "codebuild.amazonaws.com",
-        )
+        codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
-        codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role)
-        cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
-        cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
+        
