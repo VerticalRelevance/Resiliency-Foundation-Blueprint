@@ -28,6 +28,7 @@ from aws_cdk import (
     aws_kms as kms,
     aws_codeartifact as codeartifact,
     aws_elasticsearch as elasticsearch,
+    aws_codebuild as codebuild,
     core
 )
 
@@ -107,7 +108,7 @@ class ResiliencyFoundationStack(core.Stack):
         backend_bucket = s3.Bucket(self, "backend_bucket", bucket_name="resiliency-terraform-backend-bucket3",access_control=s3.BucketAccessControl.PRIVATE,versioned=True,removal_policy=core.RemovalPolicy.DESTROY)
         return backend_bucket
 
-    def createCodePipelineIAMPolicy(self,codepipeline_bucket_arn,codestar_connections_github_arn):
+    def createCodePipelineIAMPolicy(self,codepipeline_bucket,codestar_connections_github_arn):
         codepipeline_policy = iam.ManagedPolicy(
             self, "codepipeline_policy",
             managed_policy_name="codepipeline_policy",
@@ -122,8 +123,8 @@ class ResiliencyFoundationStack(core.Stack):
                         "s3:PutObject"
                     ],
                     resources=[
-                        codepipeline_bucket_arn,
-                        codepipeline_bucket_arn+"/*",
+                        codepipeline_bucket.bucket_arn,
+                        codepipeline_bucket.bucket_arn+"/*",
                     ],
                 ),
                 iam.PolicyStatement(effect= 
@@ -150,7 +151,7 @@ class ResiliencyFoundationStack(core.Stack):
 
         return codepipeline_policy
 
-    def createCodeBuildPackageIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn):
+    def createCodeBuildPackageIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket):
         resiliencyvr_codebuild_package_policy = iam.ManagedPolicy(
             self, "resiliencyvr_codebuild_package_policy",
             managed_policy_name="resiliencyvr_codebuild_package_policy",
@@ -199,8 +200,8 @@ class ResiliencyFoundationStack(core.Stack):
                         "s3:*"
                     ],
                     resources=[
-                        codepipeline_bucket_arn,
-                        codepipeline_bucket_arn + "/*",
+                        codepipeline_bucket.bucket_arn,
+                        codepipeline_bucket.bucket_arn + "/*",
                     ],
                 ),
             ],
@@ -208,7 +209,7 @@ class ResiliencyFoundationStack(core.Stack):
 
         return resiliencyvr_codebuild_package_policy
 
-    def createCodeBuildLambdaIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket_arn,backend_bucket_arn):
+    def createCodeBuildLambdaIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket,backend_bucket_arn):
         resiliencyvr_codebuild_lambda_policy = iam.ManagedPolicy(
             self, "resiliencyvr_codebuild_lambda_policy",
             managed_policy_name="resiliencyvr_codebuild_lambda_policy",
@@ -257,8 +258,8 @@ class ResiliencyFoundationStack(core.Stack):
                         "s3:*"
                     ],
                     resources=[
-                        codepipeline_bucket_arn,
-                        codepipeline_bucket_arn + "/*",
+                        codepipeline_bucket.bucket_arn,
+                        codepipeline_bucket.bucket_arn + "/*",
                         backend_bucket_arn,
                         backend_bucket_arn + "/*",
                     ],
@@ -329,14 +330,71 @@ class ResiliencyFoundationStack(core.Stack):
                 path=None,
                 role_name=name
             )
-        
         return role
+
+    def createCodeBuildPipelineProjects(self,codebuild_package_role,codebuild_lambda_role,codepipeline_bucket):
+        zf = ZipFile("buildspec-resiliencyvr.zip", "w")
+        zf.write("buildspec-resiliencyvr.yml")
+        zf.close()
+        resiliencyvr_project = codebuild.PipelineProject(self, "resiliencyvr_project",
+            project_name = "resiliencyvr-package-codebuild",
+            description = "Builds the resiliencyvr package",
+            role = codebuild_package_role,
+            timeout = core.Duration.minutes(5),
+
+            # artifacts=codebuild.Artifacts(type="CODEPIPELINE")
+
+            environment= codebuild.BuildEnvironment(
+                compute_type=codebuild.ComputeType.SMALL
+            ),
+
+            logging=codebuild.LoggingOptions(
+                s3=codebuild.S3LoggingOptions(
+                    bucket=codepipeline_bucket,
+                    prefix="build-log"
+                )
+            ),
+
+            build_spec=codebuild.BuildSpec.from_source_filename("buildspec-resiliencyvr.zip")
+        )
+        zf = ZipFile("buildspec-lambda.zip", "w")
+        zf.write("buildspec-lambda.yml")
+        zf.close()
+        lambda_project = codebuild.PipelineProject(self, "lambda_project",
+            project_name = "resiliency-lambda-codebuild",
+            description = "Builds the resiliency lambda to run VR Resiliency tests",
+            role = codebuild_lambda_role,
+            timeout = core.Duration.minutes(5),
+
+            # artifacts=codebuild.Artifacts(type="CODEPIPELINE")
+
+            environment= codebuild.BuildEnvironment(
+                compute_type=codebuild.ComputeType.SMALL,
+                environment_variables={
+                    "TF_COMMAND": codebuild.BuildEnvironmentVariable(
+                        value=""
+                    ),
+                    "TF_VAR_resiliency_bucket": codebuild.BuildEnvironmentVariable(
+                        value=codepipeline_bucket.bucket_name
+                    )
+                }
+            ),
+
+            logging=codebuild.LoggingOptions(
+                s3=codebuild.S3LoggingOptions(
+                    bucket=codepipeline_bucket,
+                    prefix="build-log"
+                )
+            ),
+
+            build_spec=codebuild.BuildSpec.from_source_filename("buildspec-lambda.zip")
+        )
 
 
     def __init__(self, scope, id):
         super().__init__(scope, id)
 
-        #codepipeline_bucket_arn = "arn:aws:s3:::bucket_name"
+        #codepipeline_bucket.bucket_arn = "arn:aws:s3:::bucket_name"
 
         codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
             "resiliencyvr-package-build-pipeline-role",
@@ -355,17 +413,15 @@ class ResiliencyFoundationStack(core.Stack):
         cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
         cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
 
-        codepipeline_bucket_arn = ResiliencyFoundationStack.createCodePipelineBucket(self).bucket_arn
+        codepipeline_bucket = ResiliencyFoundationStack.createCodePipelineBucket(self)
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
-        #codeartifact_domain_res_ca_dev_domain_arn = "arn:aws:codeartifact:us-west-2:111122223333:domain/my_domain"
         codeartifact_domain_res_ca_dev_domain_arn = cfn_domain_res_ca_devckd.attr_arn
-        #codeartifact_repository_res_ca_dev_arn = "arn:aws:codeartifact:region-id:111122223333:repository/my_domain/my_repo"
         codeartifact_repository_res_ca_dev_arn = cfn_repository_res_ca_dev.attr_arn
 
         backend_bucket_arn = ResiliencyFoundationStack.createBackendBucket(self).bucket_arn
 
         codepipeline_policy = ResiliencyFoundationStack.createCodePipelineIAMPolicy(self,
-            codepipeline_bucket_arn,
+            codepipeline_bucket,
             codestar_connections_github_arn
         )
         codepipeline_policy.attach_to_role(codepipeline_role)
@@ -373,16 +429,21 @@ class ResiliencyFoundationStack(core.Stack):
         codebuild_package_policy = ResiliencyFoundationStack.createCodeBuildPackageIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
-            codepipeline_bucket_arn
+            codepipeline_bucket,
         )
         codebuild_package_policy.attach_to_role(codebuild_package_role)
 
         codebuild_lambda_policy = ResiliencyFoundationStack.createCodeBuildLambdaIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
-            codepipeline_bucket_arn,
+            codepipeline_bucket,
             backend_bucket_arn,
         )
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
+        codebuild_resources = ResiliencyFoundationStack.createCodeBuildPipelineProjects(self,
+            codebuild_package_role,
+            codebuild_lambda_role,
+            codepipeline_bucket
+        )
         
