@@ -41,18 +41,28 @@ class ResiliencyFoundationStack(core.Stack):
             # ),
         )
 
-        cfn_repository = codeartifact.CfnRepository(self, "MyCfnRepository",
+        cfn_repository_pypistore = codeartifact.CfnRepository(self, "cfn_repository_pypistore",
             domain_name=cfn_domain.domain_name,
             repository_name="pypi-store",
             external_connections=["public:pypi"],
         )
 
+        cfn_repository_pypistore.add_depends_on(cfn_domain)
+
+        cfn_repository_res_ca_dev = codeartifact.CfnRepository(self, "cfn_repository_res_ca_dev",
+            domain_name=cfn_domain.domain_name,
+            repository_name="res-ca-dev",
+            upstreams=[cfn_repository_pypistore.repository_name],
+        )
+
+        cfn_repository_res_ca_dev.add_depends_on(cfn_domain)
+
     def createCodePipelineBucket(self):
-        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket2",access_control=s3.BucketAccessControl.PRIVATE)
+        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket3",access_control=s3.BucketAccessControl.PRIVATE)
         return code_pipeline_bucket
     
     def createBackendBucket(self):
-        backend_bucket = s3.Bucket(self, "backend_bucket", bucket_name="resiliency-terraform-backend-bucket2",access_control=s3.BucketAccessControl.PRIVATE,versioned=True)
+        backend_bucket = s3.Bucket(self, "backend_bucket", bucket_name="resiliency-terraform-backend-bucket3",access_control=s3.BucketAccessControl.PRIVATE,versioned=True)
         return backend_bucket
 
     def createCodePipelineIAMResources(self,codepipeline_bucket_arn,codestar_connections_github_arn):
