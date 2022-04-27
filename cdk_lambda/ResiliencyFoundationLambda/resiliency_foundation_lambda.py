@@ -4,6 +4,7 @@ from email import policy
 from fileinput import filename
 from multiprocessing import Condition
 import os
+from pickle import TRUE
 from pyclbr import Function
 import re
 from sqlite3 import Timestamp
@@ -33,6 +34,15 @@ from aws_cdk import (
 )
 
 class ResiliencyFoundationLambdaStack(core.Stack):
+    def createKMSKey(self,name,description):
+        key = kms.Key(self, 
+            name,
+            description=description,
+            pending_window=core.Duration.days(14),
+            enable_key_rotation=True,
+        )
+        return key
+
     def createIAMRole(self,name,service_principal):
         role = iam.Role(
                 self, name, 
@@ -43,12 +53,68 @@ class ResiliencyFoundationLambdaStack(core.Stack):
             )
         return role
 
-    
+    def createResiliencyLambdaIAMPolicy(self):
+        resiliency_lambda_policy = iam.ManagedPolicy(
+            self, "resiliency_lambda_policy",
+            managed_policy_name="resiliency_lambda_policy",
+            statements=[
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "ssm:SendCommand"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "s3:GetObject",
+                        "s3:Listbucket",
+                        "s3:PutObject"
+                    ],
+                    resources=[
+                        "arn:aws:s3:::resiliency-testing-experiments",
+                        "arn:aws:s3:::resiliency-testing-experiments/*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "ec2:DescribeInstances"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "ec2:RunInstances",
+                        "ec2:TerminateInstances",
+                        "ec2:StopInstances",
+                        "ec2:StartInstances"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                    # conditions=[{
+                    #     "StringEquals":{
+                    #         "ec2:ResourceTag/Type": "Resiliency",
+                    #     },
+                    # }
+                    # ],
+                ),
+            ],
+        )
+
+        return resiliency_lambda_policy
 
     def __init__(self, scope, id):
         super().__init__(scope, id)
         
-        codepipeline_role = ResiliencyFoundationLambdaStack.createIAMRole(self,
-            "resiliencyvr-package-build-pipeline-role",
-            "codepipeline.amazonaws.com",
-        )
+        s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
+        resiliency_lambda_role = ResiliencyFoundationLambdaStack.createIAMRole(self,"resiliency_lambda_role","lambda.amazonaws.com")
+        resiliency_lambda_policy = ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
+        
