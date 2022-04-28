@@ -10,6 +10,7 @@ import re
 from sqlite3 import Timestamp
 from ssl import _create_default_https_context
 import time
+import zipfile
 from zipfile import ZipFile
 import json
 from aws_cdk import (
@@ -110,11 +111,69 @@ class ResiliencyFoundationLambdaStack(core.Stack):
         )
 
         return resiliency_lambda_policy
+   
+    def uploadLambdaCode(self):
+        def zipdir(path, ziph):
+            # ziph is zipfile handle
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    ziph.write(os.path.join(root, file), 
+                            os.path.relpath(os.path.join(root, file), 
+                                            os.path.join(path, '..')))
+        
+        with zipfile.ZipFile('resiliency_code.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipdir('../resiliency_code', zipf)
 
+        ZipFile("resiliency_code_zipped.zip", mode='w').write("resiliency_code.zip")
+
+        lambda_code_bucket = s3.Bucket(self, "resiliency_lambda_code_bucket", bucket_name="resiliency-lambda-code-bucket",access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
+        code_upload = s3deploy.BucketDeployment(self, "LambdaCodeSource",
+            sources=[s3deploy.Source.asset("resiliency_code_zipped.zip")],
+            destination_bucket=lambda_code_bucket,
+        )
+
+        return{
+            "lambda_code_bucket" : lambda_code_bucket,
+            "code_upload" : code_upload
+        }
+
+    def createFunction(self,resiliency_lambda_role,lambda_code_bucket,code_upload):
+        lambda_function=lambda_.Function(self,
+            "lambda_function",
+            function_name="ResiliencyLambdaFunction",
+            role=resiliency_lambda_role,
+            runtime=lambda_.Runtime.PYTHON_3_9,
+            handler="resiliency_foundation.lambda_handler",
+            code=lambda_.Code.from_bucket(
+                bucket=lambda_code_bucket,
+                key="resiliency_code.zip"
+            ),
+            # environment={
+            #     "ROLE_NAME": role_name,
+            #     "TOPICARN": topic_arn
+            # },
+        )
+
+        
+        lambda_function.node.add_dependency(code_upload)
+        # lambda_function.add_depends_on(code_upload)
+
+        return lambda_function
+    
     def __init__(self, scope, id):
         super().__init__(scope, id)
         
         s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
         resiliency_lambda_role = ResiliencyFoundationLambdaStack.createIAMRole(self,"resiliency_lambda_role","lambda.amazonaws.com")
         resiliency_lambda_policy = ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
+        resiliency_lambda_policy.attach_to_role(resiliency_lambda_role)
         
+        code_upload_resources = ResiliencyFoundationLambdaStack.uploadLambdaCode(self)
+        code_upload = code_upload_resources["code_upload"]
+        lambda_code_bucket = code_upload_resources["lambda_code_bucket"]
+        lambda_function = ResiliencyFoundationLambdaStack.createFunction(self,resiliency_lambda_role,lambda_code_bucket,code_upload)
+        
+        dependency = core.Dependency(
+            source=lambda_function,
+            target=code_upload
+        )
