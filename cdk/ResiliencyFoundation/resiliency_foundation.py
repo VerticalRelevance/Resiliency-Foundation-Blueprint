@@ -11,6 +11,7 @@ from ssl import _create_default_https_context
 import time
 from zipfile import ZipFile
 import json
+import aws_cdk as core
 from aws_cdk import (
     aws_iam as iam,
     aws_s3 as s3,
@@ -31,10 +32,10 @@ from aws_cdk import (
     aws_codebuild as codebuild,
     # aws_codepipeline as codepipeline,
     # aws_codepipeline_actions as codepipeline_actions,
-    core
+    Stack
 )
 
-class ResiliencyFoundationStack(core.Stack):
+class ResiliencyFoundationStack(Stack):
     def createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role):
         cfn_domain_permissions_policy = iam.PolicyDocument(
             statements=[
