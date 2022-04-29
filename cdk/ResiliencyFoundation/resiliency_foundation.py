@@ -426,6 +426,58 @@ class ResiliencyFoundationStack(Stack):
         )
         build_stage = resiliencyvr_pipeline.add_stage(stage_name="Build")
         build_stage.add_action(build_action)
+    
+    def createLambdaPipeline(self,lambda_codebuild_pipeline_project):
+        lambda_pipeline = codepipeline.Pipeline(self, "lambda_pipeline")
+
+        source_output = codepipeline.Artifact(artifact_name="source_output")
+        source_action = codepipeline_actions.GitHubSourceAction(
+            action_name="Github_Source",
+            output=source_output,
+            owner="ethanbegalka",
+            repo="AccessKeyCleanup",
+            oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
+            run_order=1
+        )
+        source_stage = lambda_pipeline.add_stage(stage_name="Source")
+        source_stage.add_action(source_action)
+
+        plan_action = codepipeline_actions.CodeBuildAction(
+            action_name="Plan",
+            type = codepipeline_actions.CodeBuildActionType.BUILD,
+            project=lambda_codebuild_pipeline_project,
+            input=source_output,
+            run_order=2,
+            environment_variables={
+                "TF_COMMAND": codebuild.BuildEnvironmentVariable(
+                    value="plan"
+                )
+            }
+        )
+        plan_stage = lambda_pipeline.add_stage(stage_name="Plan")
+        plan_stage.add_action(plan_action)
+
+        approval_action = codepipeline_actions.ManualApprovalAction(
+            action_name="Approve",
+            run_order = 3,
+        )
+        approval_stage = lambda_pipeline.add_stage(stage_name="Approval")
+        approval_stage.add_action(approval_action)
+
+        apply_action = codepipeline_actions.CodeBuildAction(
+            action_name="Apply",
+            type = codepipeline_actions.CodeBuildActionType.BUILD,
+            project=lambda_codebuild_pipeline_project,
+            input=source_output,
+            run_order=4,
+            environment_variables={
+                "TF_COMMAND": codebuild.BuildEnvironmentVariable(
+                    value="apply -auto-approve"
+                )
+            }
+        )
+        apply_stage = lambda_pipeline.add_stage(stage_name="Apply")
+        apply_stage.add_action(apply_action)
 
 
     def __init__(self, scope, id):
@@ -479,6 +531,7 @@ class ResiliencyFoundationStack(Stack):
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
         resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket)
-        # lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket)
+        lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket)
         ResiliencyFoundationStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
+        ResiliencyFoundationStack.createLambdaPipeline(self,lambda_codebuild_pipeline_project)
         
