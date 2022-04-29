@@ -30,8 +30,8 @@ from aws_cdk import (
     aws_codeartifact as codeartifact,
     aws_elasticsearch as elasticsearch,
     aws_codebuild as codebuild,
-    # aws_codepipeline as codepipeline,
-    # aws_codepipeline_actions as codepipeline_actions,
+    aws_codepipeline as codepipeline,
+    aws_codepipeline_actions as codepipeline_actions,
     Stack
 )
 
@@ -393,49 +393,48 @@ class ResiliencyFoundationStack(Stack):
             build_spec=codebuild.BuildSpec.from_source_filename("buildspec-lambda.zip")
         )
 
-    # def createPipeline(self,repo):
+    def createPipeline(self,repo):
 
-    #     build_project = codebuild.PipelineProject(self, "InvalidateProject",
-    #         build_spec=codebuild.BuildSpec.from_object({
-    #             "version": "0.2",
-    #             "phases": {
-    #                 "build": {
-    #                     "commands": ["ls"]
-    #                 }
-    #             }
-    #         }),
-    #     )
-    #     pipeline = codepipeline.Pipeline(self, "Pipeline")
+        build_project = codebuild.PipelineProject(self, "InvalidateProject",
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "build": {
+                        "commands": ["ls"]
+                    }
+                }
+            }),
+        )
+        pipeline = codepipeline.Pipeline(self, "Pipeline")
 
-    #     source_stage = pipeline.add_stage(stage_name="Source")
+        source_stage = pipeline.add_stage(stage_name="Source")
 
-    #     source_output = codepipeline.Artifact()
+        source_output = codepipeline.Artifact()
 
-    #     source_action = codepipeline_actions.GitHubSourceAction(
-    #         action_name="Github_Source",
-    #         output=source_output,
-    #         owner="ethanbegalka",
-    #         repo="AccessKeyCleanup",
-    #         oauth_token=core.SecretValue.unsafe_plain_text("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")
-    #         # oauth_token=SecretValue.secrets_manager("my-github-token"),
-    #         # variables_namespace="MyNamespace"
-    #     )
+        source_action = codepipeline_actions.GitHubSourceAction(
+            action_name="Github_Source",
+            output=source_output,
+            owner="ethanbegalka",
+            repo="AccessKeyCleanup",
+            oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
+            # variables_namespace="MyNamespace"
+        )
 
-    #     source_stage.add_action(source_action)
+        source_stage.add_action(source_action)
 
-    #     dest_stage = pipeline.add_stage(stage_name="Dest")
+        dest_stage = pipeline.add_stage(stage_name="Dest")
 
-    #     dest_output = codepipeline.Artifact(artifact_name="dest_output")
-    #     dest_input = codepipeline.Artifact(artifact_name="dest_input")
+        dest_output = codepipeline.Artifact(artifact_name="dest_output")
+        dest_input = codepipeline.Artifact(artifact_name="dest_input")
 
-    #     dest_action = codepipeline_actions.CodeBuildAction(
-    #             action_name="InvalidateCache",
-    #             project=build_project,
-    #             input=source_output,
-    #             run_order=2
-    #     )
+        dest_action = codepipeline_actions.CodeBuildAction(
+                action_name="InvalidateCache",
+                project=build_project,
+                input=source_output,
+                run_order=2
+        )
 
-    #     dest_stage.add_action(dest_action)
+        dest_stage.add_action(dest_action)
 
 
     def __init__(self, scope, id):
@@ -494,5 +493,5 @@ class ResiliencyFoundationStack(Stack):
             codepipeline_bucket
         )
 
-        # ResiliencyFoundationStack.createPipeline(self,cfn_repository_res_ca_dev)
+        ResiliencyFoundationStack.createPipeline(self,cfn_repository_res_ca_dev)
         
