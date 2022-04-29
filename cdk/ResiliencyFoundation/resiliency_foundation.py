@@ -9,6 +9,7 @@ import re
 from sqlite3 import Timestamp
 from ssl import _create_default_https_context
 import time
+from unicodedata import category
 from zipfile import ZipFile
 import json
 import aws_cdk as core
@@ -325,21 +326,26 @@ class ResiliencyFoundationStack(Stack):
 
         return resiliencyvr_codebuild_lambda_policy
 
-    def createIAMRole(self,name,service_principal):
+    def createIAMRole(self,name,service_principal_list):
+        composite_principal = iam.CompositePrincipal(iam.ServicePrincipal(service_principal_list[0]))
+        if len(service_principal_list) > 1:
+            for service_principal in service_principal_list[1:]:
+                composite_principal.add_principals(iam.ServicePrincipal(service_principal))
         role = iam.Role(
                 self, name, 
-                assumed_by=iam.ServicePrincipal(service_principal),
+                assumed_by=composite_principal,
+                #assumed_by=iam.ServicePrincipal(service_principal),
                 #max_session_duration=core.Duration.seconds(43200),
                 path=None,
                 role_name=name
             )
         return role
 
-    def createCodeBuildPipelineProjects(self,codebuild_package_role,codebuild_lambda_role,codepipeline_bucket):
+    def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket):
         zf = ZipFile("buildspec-resiliencyvr.zip", "w")
         zf.write("buildspec-resiliencyvr.yml")
         zf.close()
-        resiliencyvr_project = codebuild.PipelineProject(self, "resiliencyvr_project",
+        resiliencyvr_project = codebuild.PipelineProject(self, "resiliencyvr_codebuild_project",
             project_name = "resiliencyvr-package-codebuild",
             description = "Builds the resiliencyvr package",
             role = codebuild_package_role,
@@ -360,6 +366,8 @@ class ResiliencyFoundationStack(Stack):
 
             build_spec=codebuild.BuildSpec.from_source_filename("buildspec-resiliencyvr.zip")
         )
+        return resiliencyvr_project
+    def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket):
         zf = ZipFile("buildspec-lambda.zip", "w")
         zf.write("buildspec-lambda.yml")
         zf.close()
@@ -392,49 +400,32 @@ class ResiliencyFoundationStack(Stack):
 
             build_spec=codebuild.BuildSpec.from_source_filename("buildspec-lambda.zip")
         )
+        return lambda_project
 
-    def createPipeline(self,repo):
+    def createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project):
+        resiliencyvr_pipeline = codepipeline.Pipeline(self, "resiliencyvr_pipeline")
 
-        build_project = codebuild.PipelineProject(self, "InvalidateProject",
-            build_spec=codebuild.BuildSpec.from_object({
-                "version": "0.2",
-                "phases": {
-                    "build": {
-                        "commands": ["ls"]
-                    }
-                }
-            }),
-        )
-        pipeline = codepipeline.Pipeline(self, "Pipeline")
-
-        source_stage = pipeline.add_stage(stage_name="Source")
-
-        source_output = codepipeline.Artifact()
-
+        source_output = codepipeline.Artifact(artifact_name="source_output")
         source_action = codepipeline_actions.GitHubSourceAction(
             action_name="Github_Source",
             output=source_output,
             owner="ethanbegalka",
             repo="AccessKeyCleanup",
             oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
-            # variables_namespace="MyNamespace"
+            run_order=1
         )
-
+        source_stage = resiliencyvr_pipeline.add_stage(stage_name="Source")
         source_stage.add_action(source_action)
 
-        dest_stage = pipeline.add_stage(stage_name="Dest")
-
-        dest_output = codepipeline.Artifact(artifact_name="dest_output")
-        dest_input = codepipeline.Artifact(artifact_name="dest_input")
-
-        dest_action = codepipeline_actions.CodeBuildAction(
-                action_name="InvalidateCache",
-                project=build_project,
+        build_action = codepipeline_actions.CodeBuildAction(
+                action_name="Build",
+                type = codepipeline_actions.CodeBuildActionType.BUILD,
+                project=resiliencyvr_codebuild_pipeline_project,
                 input=source_output,
                 run_order=2
         )
-
-        dest_stage.add_action(dest_action)
+        build_stage = resiliencyvr_pipeline.add_stage(stage_name="Build")
+        build_stage.add_action(build_action)
 
 
     def __init__(self, scope, id):
@@ -444,15 +435,15 @@ class ResiliencyFoundationStack(Stack):
 
         codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
             "resiliencyvr-package-build-pipeline-role",
-            "codepipeline.amazonaws.com",
+            ["codepipeline.amazonaws.com","codebuild.amazonaws.com"],
         )
         codebuild_package_role = ResiliencyFoundationStack.createIAMRole(self,
             "resiliencyvr_codebuild_package_role",
-            "codebuild.amazonaws.com",
+            ["codebuild.amazonaws.com"],
         )
         codebuild_lambda_role = ResiliencyFoundationStack.createIAMRole(self,
             "resiliencyvr_codebuild_lambda_role",
-            "codebuild.amazonaws.com",
+            ["codebuild.amazonaws.com"],
         )
 
         codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role)
@@ -487,11 +478,7 @@ class ResiliencyFoundationStack(Stack):
         )
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
-        codebuild_resources = ResiliencyFoundationStack.createCodeBuildPipelineProjects(self,
-            codebuild_package_role,
-            codebuild_lambda_role,
-            codepipeline_bucket
-        )
-
-        ResiliencyFoundationStack.createPipeline(self,cfn_repository_res_ca_dev)
+        resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket)
+        # lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket)
+        ResiliencyFoundationStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
         
