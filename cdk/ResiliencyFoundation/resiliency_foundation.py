@@ -335,14 +335,7 @@ class ResiliencyFoundationStack(Stack):
             )
         return role
 
-<<<<<<< HEAD
-    def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket):
-=======
     def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name):
-        zf = ZipFile("buildspec-resiliencyvr.zip", "w")
-        zf.write("buildspec-resiliencyvr.yml")
-        zf.close()
->>>>>>> 2491051da9a0e099fcdf97e2c66b4ca0f0d49b0b
         resiliencyvr_project = codebuild.PipelineProject(self, "resiliencyvr_codebuild_project",
             project_name = "resiliencyvr-package-codebuild",
             description = "Builds the resiliencyvr package",
