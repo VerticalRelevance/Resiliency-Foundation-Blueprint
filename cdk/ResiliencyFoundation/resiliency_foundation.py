@@ -37,7 +37,7 @@ from aws_cdk import (
 )
 
 class ResiliencyFoundationStack(Stack):
-    def createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role):
+    def createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role,domain_name,repo_name):
         cfn_domain_permissions_policy = iam.PolicyDocument(
             statements=[
                 iam.PolicyStatement(effect= 
@@ -74,7 +74,7 @@ class ResiliencyFoundationStack(Stack):
         encryption_key = kms.Key(self, "res-ca-dev-repo-key", description="res-ca-dev repository key")
 
         cfn_domain_res_ca_devckd = codeartifact.CfnDomain(self, "MyCfnDomain",
-            domain_name="res-ca-devckd",
+            domain_name=domain_name,
             permissions_policy_document=cfn_domain_permissions_policy,
             # encryption_at_rest_options=elasticsearch.CfnDomain.EncryptionAtRestOptionsProperty(
             #     enabled=False,
@@ -92,7 +92,7 @@ class ResiliencyFoundationStack(Stack):
 
         cfn_repository_res_ca_dev = codeartifact.CfnRepository(self, "cfn_repository_res_ca_dev",
             domain_name=cfn_domain_res_ca_devckd.domain_name,
-            repository_name="res-ca-dev",
+            repository_name=repo_name,
             upstreams=[cfn_repository_pypistore.repository_name],
         )
 
@@ -335,7 +335,7 @@ class ResiliencyFoundationStack(Stack):
             )
         return role
 
-    def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket):
+    def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name):
         zf = ZipFile("buildspec-resiliencyvr.zip", "w")
         zf.write("buildspec-resiliencyvr.yml")
         zf.close()
@@ -348,7 +348,18 @@ class ResiliencyFoundationStack(Stack):
             # artifacts=codebuild.Artifacts(type="CODEPIPELINE")
 
             environment= codebuild.BuildEnvironment(
-                compute_type=codebuild.ComputeType.SMALL
+                compute_type=codebuild.ComputeType.SMALL,
+                environment_variables={
+                    "DOMAIN_NAME": codebuild.BuildEnvironmentVariable(
+                        value=domain_name
+                    ),
+                    "OWNER": codebuild.BuildEnvironmentVariable(
+                        value=owner
+                    ),
+                    "REPO_NAME": codebuild.BuildEnvironmentVariable(
+                        value=repo_name
+                    )
+                }
             ),
 
             logging=codebuild.LoggingOptions(
@@ -479,6 +490,10 @@ class ResiliencyFoundationStack(Stack):
     def __init__(self, scope, id):
         super().__init__(scope, id)
 
+        domain_name="res-ca-devckd"
+        owner=self.account
+        repo_name="res-ca-dev"
+
         #codepipeline_bucket.bucket_arn = "arn:aws:s3:::bucket_name"
 
         codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
@@ -494,7 +509,7 @@ class ResiliencyFoundationStack(Stack):
             ["codebuild.amazonaws.com"],
         )
 
-        codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role)
+        codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role,domain_name,repo_name)
         cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
         cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
 
@@ -523,7 +538,7 @@ class ResiliencyFoundationStack(Stack):
         )
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
-        resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket)
+        resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name)
         lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket)
         ResiliencyFoundationStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
         ResiliencyFoundationStack.createLambdaPipeline(self,lambda_codebuild_pipeline_project)
