@@ -8,7 +8,7 @@ phases:
     commands:
       - env
       - pip3 install build awscli twine 
-      - aws codeartifact login --tool twine --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME
+      - aws codeartifact login --tool twine --domain "$DOMAIN_NAME" --domain-owner "$OWNER" --repository "$REPO_NAME"
 
   build:
     commands:
