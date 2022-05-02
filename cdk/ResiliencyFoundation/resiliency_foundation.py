@@ -105,12 +105,8 @@ class ResiliencyFoundationStack(Stack):
         }
 
     def createCodePipelineBucket(self):
-        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliency-package-build-bucket3",access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
+        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliencyvr-package-build-bucket",access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
         return code_pipeline_bucket
-    
-    def createBackendBucket(self):
-        backend_bucket = s3.Bucket(self, "backend_bucket", bucket_name="resiliency-terraform-backend-bucket3",access_control=s3.BucketAccessControl.PRIVATE,versioned=True,removal_policy=core.RemovalPolicy.DESTROY)
-        return backend_bucket
 
     def createCodePipelineIAMPolicy(self,codepipeline_bucket,codestar_connections_github_arn):
         codepipeline_policy = iam.ManagedPolicy(
@@ -213,7 +209,7 @@ class ResiliencyFoundationStack(Stack):
 
         return resiliencyvr_codebuild_package_policy
 
-    def createCodeBuildLambdaIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket,backend_bucket_arn):
+    def createCodeBuildLambdaIAMPolicy(self,codeartifact_repository_res_ca_dev_arn,codeartifact_domain_res_ca_dev_domain_arn,codepipeline_bucket):
         resiliencyvr_codebuild_lambda_policy = iam.ManagedPolicy(
             self, "resiliencyvr_codebuild_lambda_policy",
             managed_policy_name="resiliencyvr_codebuild_lambda_policy",
@@ -264,8 +260,6 @@ class ResiliencyFoundationStack(Stack):
                     resources=[
                         codepipeline_bucket.bucket_arn,
                         codepipeline_bucket.bucket_arn + "/*",
-                        backend_bucket_arn,
-                        backend_bucket_arn + "/*",
                     ],
                 ),
                 iam.PolicyStatement(effect= 
@@ -509,8 +503,6 @@ class ResiliencyFoundationStack(Stack):
         codeartifact_domain_res_ca_dev_domain_arn = cfn_domain_res_ca_devckd.attr_arn
         codeartifact_repository_res_ca_dev_arn = cfn_repository_res_ca_dev.attr_arn
 
-        backend_bucket_arn = ResiliencyFoundationStack.createBackendBucket(self).bucket_arn
-
         codepipeline_policy = ResiliencyFoundationStack.createCodePipelineIAMPolicy(self,
             codepipeline_bucket,
             codestar_connections_github_arn
@@ -528,7 +520,6 @@ class ResiliencyFoundationStack(Stack):
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
             codepipeline_bucket,
-            backend_bucket_arn,
         )
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
