@@ -1,4 +1,5 @@
 from cgi import test
+import random
 import email
 from email import policy
 from fileinput import filename
@@ -104,8 +105,8 @@ class ResiliencyFoundationStack(Stack):
             "cfn_repository_res_ca_dev" : cfn_repository_res_ca_dev
         }
 
-    def createCodePipelineBucket(self):
-        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliencyvr-package-build-bucket",access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
+    def createCodePipelineBucket(self,random_bucket_suffix):
+        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliencyvr-package-build-bucket"+random_bucket_suffix,access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
         return code_pipeline_bucket
 
     def createCodePipelineIAMPolicy(self,codepipeline_bucket,codestar_connections_github_arn):
@@ -497,7 +498,7 @@ class ResiliencyFoundationStack(Stack):
         owner=self.account
         repo_name="res-ca-dev"
 
-        #codepipeline_bucket.bucket_arn = "arn:aws:s3:::bucket_name"
+        random_bucket_suffix = str(random.randint(100000,999999))
 
         codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
             "resiliencyvr-package-build-pipeline-role",
@@ -516,7 +517,7 @@ class ResiliencyFoundationStack(Stack):
         cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
         cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
 
-        codepipeline_bucket = ResiliencyFoundationStack.createCodePipelineBucket(self)
+        codepipeline_bucket = ResiliencyFoundationStack.createCodePipelineBucket(self,random_bucket_suffix)
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
         codeartifact_domain_res_ca_dev_domain_arn = cfn_domain_res_ca_devckd.attr_arn
         codeartifact_repository_res_ca_dev_arn = cfn_repository_res_ca_dev.attr_arn
