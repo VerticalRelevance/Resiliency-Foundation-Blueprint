@@ -409,8 +409,9 @@ class ResiliencyFoundationStack(Stack):
         source_action = codepipeline_actions.GitHubSourceAction(
             action_name="Github_Source",
             output=source_output,
-            owner="ethanbegalka",
-            repo="AccessKeyCleanup",
+            owner="VerticalRelevance",
+            repo="Resiliency-Foundation-Blueprint",
+            branch="dev",
             oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
             run_order=1
         )
@@ -434,8 +435,9 @@ class ResiliencyFoundationStack(Stack):
         source_action = codepipeline_actions.GitHubSourceAction(
             action_name="Github_Source",
             output=source_output,
-            owner="ethanbegalka",
-            repo="AccessKeyCleanup",
+            owner="VerticalRelevance",
+            repo="Resiliency-Foundation-Blueprint",
+            branch="dev",
             oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
             run_order=1
         )
