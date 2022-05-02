@@ -369,7 +369,7 @@ class ResiliencyFoundationStack(Stack):
             build_spec=codebuild.BuildSpec.from_source_filename("terraform/build/buildspec-resiliencyvr.yml")
         )
         return resiliencyvr_project
-    def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket):
+    def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket,domain_name,owner,repo_name):
         lambda_project = codebuild.PipelineProject(self, "lambda_project",
             project_name = "resiliency-lambda-codebuild",
             description = "Builds the resiliency lambda to run VR Resiliency tests",
@@ -381,6 +381,15 @@ class ResiliencyFoundationStack(Stack):
             environment= codebuild.BuildEnvironment(
                 compute_type=codebuild.ComputeType.SMALL,
                 environment_variables={
+                    "DOMAIN_NAME": codebuild.BuildEnvironmentVariable(
+                        value=domain_name
+                    ),
+                    "OWNER": codebuild.BuildEnvironmentVariable(
+                        value=owner
+                    ),
+                    "REPO_NAME": codebuild.BuildEnvironmentVariable(
+                        value=repo_name
+                    ),
                     "TF_COMMAND": codebuild.BuildEnvironmentVariable(
                         value=""
                     ),
@@ -533,7 +542,7 @@ class ResiliencyFoundationStack(Stack):
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
         resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name)
-        lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket)
+        lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket,domain_name,owner,repo_name)
         ResiliencyFoundationStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
         ResiliencyFoundationStack.createLambdaPipeline(self,lambda_codebuild_pipeline_project)
         

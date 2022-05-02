@@ -8,7 +8,7 @@ phases:
       - yum -y install terraform
   pre_build:
     commands:
-      - aws codeartifact login --tool pip --domain ${DOMAIN_NAME} --domain-owner ${OWNER} --repository ${REPO_NAME}
+      - aws codeartifact login --tool pip --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME
       - cd terraform/lambda
       - terraform init
 
