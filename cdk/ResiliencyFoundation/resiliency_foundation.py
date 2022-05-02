@@ -336,9 +336,6 @@ class ResiliencyFoundationStack(Stack):
         return role
 
     def createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket):
-        zf = ZipFile("buildspec-resiliencyvr.zip", "w")
-        zf.write("buildspec-resiliencyvr.yml")
-        zf.close()
         resiliencyvr_project = codebuild.PipelineProject(self, "resiliencyvr_codebuild_project",
             project_name = "resiliencyvr-package-codebuild",
             description = "Builds the resiliencyvr package",
@@ -358,13 +355,10 @@ class ResiliencyFoundationStack(Stack):
                 )
             ),
 
-            build_spec=codebuild.BuildSpec.from_source_filename("buildspec-resiliencyvr.zip")
+            build_spec=codebuild.BuildSpec.from_source_filename("terraform/build/buildspec-resiliencyvr.yml")
         )
         return resiliencyvr_project
     def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket):
-        zf = ZipFile("buildspec-lambda.zip", "w")
-        zf.write("buildspec-lambda.yml")
-        zf.close()
         lambda_project = codebuild.PipelineProject(self, "lambda_project",
             project_name = "resiliency-lambda-codebuild",
             description = "Builds the resiliency lambda to run VR Resiliency tests",
@@ -392,7 +386,7 @@ class ResiliencyFoundationStack(Stack):
                 )
             ),
 
-            build_spec=codebuild.BuildSpec.from_source_filename("buildspec-lambda.zip")
+            build_spec=codebuild.BuildSpec.from_source_filename("terraform/build/buildspec-lambda.yml")
         )
         return lambda_project
 
