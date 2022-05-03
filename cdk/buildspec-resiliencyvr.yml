@@ -7,7 +7,6 @@ phases:
   pre_build:
     commands:
       - printenv
-      - echo "TESTTESTESTESTESTESTESTEST"
       - pip3 install build awscli twine 
       - "aws codeartifact login --tool twine --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME"
 

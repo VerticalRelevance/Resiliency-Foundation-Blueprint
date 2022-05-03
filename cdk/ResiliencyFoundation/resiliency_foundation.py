@@ -367,7 +367,7 @@ class ResiliencyFoundationStack(Stack):
                 )
             ),
 
-            build_spec=codebuild.BuildSpec.from_source_filename("terraform/build/buildspec-resiliencyvr.yml")
+            build_spec=codebuild.BuildSpec.from_source_filename("cdk/buildspec-resiliencyvr.yml")
         )
         return resiliencyvr_project
     def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket,domain_name,owner,repo_name):
@@ -407,7 +407,7 @@ class ResiliencyFoundationStack(Stack):
                 )
             ),
 
-            build_spec=codebuild.BuildSpec.from_source_filename("terraform/build/buildspec-lambda.yml")
+            build_spec=codebuild.BuildSpec.from_source_filename("cdk/buildspec-lambda.yml")
         )
         return lambda_project
 
