@@ -1,4 +1,9 @@
 version: 0.2
+env:
+  variables:
+    DOMAIN_NAME: $DOMAIN_NAME
+    OWNER: $OWNER
+    REPO_NAME: $REPO_NAME 
 
 phases:
   install:
@@ -6,9 +11,9 @@ phases:
       python: 3.8
   pre_build:
     commands:
-      - printenv
+      - aws --version
       - pip3 install build awscli twine 
-      - "aws codeartifact login --tool twine --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME"
+      - aws codeartifact login --tool twine --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME
 
   build:
     commands:

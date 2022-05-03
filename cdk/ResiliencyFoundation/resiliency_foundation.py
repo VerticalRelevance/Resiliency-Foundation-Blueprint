@@ -347,6 +347,7 @@ class ResiliencyFoundationStack(Stack):
 
             environment= codebuild.BuildEnvironment(
                 compute_type=codebuild.ComputeType.SMALL,
+                build_image=codebuild.LinuxBuildImage.STANDARD_5_0,
                 environment_variables={
                     "DOMAIN_NAME": codebuild.BuildEnvironmentVariable(
                         value=domain_name
