@@ -269,7 +269,8 @@ class ResiliencyFoundationPipelinesStack(Stack):
                 iam.PolicyStatement(effect= 
                     iam.Effect.ALLOW,
                     actions= [
-                        "kms:*"
+                        "kms:*",
+                        "cloudformation:*"
                     ],
                     resources=[
                         "*"
