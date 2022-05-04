@@ -33,12 +33,14 @@ from aws_cdk import (
     aws_elasticsearch as elasticsearch,
     aws_codebuild as codebuild,
     aws_codepipeline as codepipeline,
+    pipelines as pipelines,
     aws_codepipeline_actions as codepipeline_actions,
+    aws_codecommit as codecommit,
     Stack
 )
 
-class ResiliencyFoundationStack(Stack):
-    def createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role,domain_name,repo_name):
+class ResiliencyFoundationPipelinesStack(Stack):
+    def createCodeArtifactory(self,domain_name,repo_name):
         cfn_domain_permissions_policy = iam.PolicyDocument(
             statements=[
                 iam.PolicyStatement(effect= 
@@ -46,7 +48,7 @@ class ResiliencyFoundationStack(Stack):
                     actions= [
                         "codeartifact:PublishPackageVersion"
                     ],
-                    principals=[iam.ArnPrincipal(codebuild_package_role.role_arn)],
+                    principals=[iam.AnyPrincipal()],
                     resources=[
                         "*"
                     ],
@@ -62,9 +64,10 @@ class ResiliencyFoundationStack(Stack):
                         "codeartifact:ListPackageVersions",
                         "codeartifact:ListPackageVersionAssets",
                         "codeartifact:ListPackageVersionDependencies",
-                        "codeartifact:ReadFromRepository"
+                        "codeartifact:ReadFromRepository",
+                        "codeartifact:GetAuthorizationToken"
                     ],
-                    principals=[iam.ArnPrincipal(codebuild_lambda_role.role_arn)],
+                    principals=[iam.AnyPrincipal()],
                     resources=[
                         "*"
                     ],
@@ -106,7 +109,7 @@ class ResiliencyFoundationStack(Stack):
         }
 
     def createCodePipelineBucket(self,random_bucket_suffix):
-        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliencyvr-package-build-bucket"+random_bucket_suffix,access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY)
+        code_pipeline_bucket = s3.Bucket(self, "code_pipeline_bucket", bucket_name="resiliencyvr-package-build-bucket"+random_bucket_suffix,access_control=s3.BucketAccessControl.PRIVATE,removal_policy=core.RemovalPolicy.DESTROY,auto_delete_objects=True)
         return code_pipeline_bucket
 
     def createCodePipelineIAMPolicy(self,codepipeline_bucket,codestar_connections_github_arn):
@@ -141,7 +144,7 @@ class ResiliencyFoundationStack(Stack):
                     iam.Effect.ALLOW,
                     actions= [
                         "codebuild:BatchGetBuilds",
-                        "codebuild:StartBuild"
+                        "codebuild:StartBuild",
                     ],
                     resources=[
                         "*"
@@ -371,17 +374,28 @@ class ResiliencyFoundationStack(Stack):
             build_spec=codebuild.BuildSpec.from_source_filename("cdk/buildspec-resiliencyvr.yml")
         )
         return resiliencyvr_project
-    def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket,domain_name,owner,repo_name):
-        lambda_project = codebuild.PipelineProject(self, "lambda_project",
-            project_name = "resiliency-lambda-codebuild",
-            description = "Builds the resiliency lambda to run VR Resiliency tests",
+    def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,domain_name,owner,repo_name):
+        lambda_deploy_project = codebuild.PipelineProject(self, "cdk_deploy",
             role = codebuild_lambda_role,
-            timeout = core.Duration.minutes(5),
+            build_spec=codebuild.BuildSpec.from_object({
+                "version": "0.2",
+                "phases": {
+                    "build": {
+                        "commands": [
+                            "aws codeartifact login --tool pip --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME",
+                            "npm install -g aws-cdk",  # Installs the cdk cli on Codebuild
+                            "pip install -r resiliency_code/lambda/requirements.txt",  # Instructs Codebuild to install required packages
+                            "pwd",
+                            "cd cdk_pipelines",
+                            "npx cdk synth",
 
-            # artifacts=codebuild.Artifacts(type="CODEPIPELINE")
-
+                        ]
+                    }
+                }
+            }),
             environment= codebuild.BuildEnvironment(
                 compute_type=codebuild.ComputeType.SMALL,
+                build_image=codebuild.LinuxBuildImage.STANDARD_5_0,
                 environment_variables={
                     "DOMAIN_NAME": codebuild.BuildEnvironmentVariable(
                         value=domain_name
@@ -391,26 +405,11 @@ class ResiliencyFoundationStack(Stack):
                     ),
                     "REPO_NAME": codebuild.BuildEnvironmentVariable(
                         value=repo_name
-                    ),
-                    "TF_COMMAND": codebuild.BuildEnvironmentVariable(
-                        value=""
-                    ),
-                    "TF_VAR_resiliency_bucket": codebuild.BuildEnvironmentVariable(
-                        value=codepipeline_bucket.bucket_name
                     )
                 }
             ),
-
-            logging=codebuild.LoggingOptions(
-                s3=codebuild.S3LoggingOptions(
-                    bucket=codepipeline_bucket,
-                    prefix="build-log"
-                )
-            ),
-
-            build_spec=codebuild.BuildSpec.from_source_filename("cdk/buildspec-lambda.yml")
         )
-        return lambda_project
+        return lambda_deploy_project
 
     def createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project):
         resiliencyvr_pipeline = codepipeline.Pipeline(self, "resiliencyvr_pipeline")
@@ -422,7 +421,9 @@ class ResiliencyFoundationStack(Stack):
             owner="VerticalRelevance",
             repo="Resiliency-Foundation-Blueprint",
             branch="dev",
-            oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
+            #oauth_token=core.SecretValue.secrets_manager("resiliency-pipeline-github-oauth-token"),
+            #oauth_token=core.SecretValue.unsafe_plain_text("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"),
+            oauth_token=core.SecretValue.unsafe_plain_text("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"),
             run_order=1
         )
         source_stage = resiliencyvr_pipeline.add_stage(stage_name="Source")
@@ -438,7 +439,7 @@ class ResiliencyFoundationStack(Stack):
         build_stage = resiliencyvr_pipeline.add_stage(stage_name="Build")
         build_stage.add_action(build_action)
     
-    def createLambdaPipeline(self,lambda_codebuild_pipeline_project):
+    def createLambdaPipeline(self,lambda_deploy_project):
         lambda_pipeline = codepipeline.Pipeline(self, "lambda_pipeline")
 
         source_output = codepipeline.Artifact(artifact_name="source_output")
@@ -454,42 +455,64 @@ class ResiliencyFoundationStack(Stack):
         source_stage = lambda_pipeline.add_stage(stage_name="Source")
         source_stage.add_action(source_action)
 
-        plan_action = codepipeline_actions.CodeBuildAction(
-            action_name="Plan",
+        deploy_action = codepipeline_actions.CodeBuildAction(
+            action_name="Deploy",
             type = codepipeline_actions.CodeBuildActionType.BUILD,
-            project=lambda_codebuild_pipeline_project,
+            project=lambda_deploy_project,
             input=source_output,
+            # environment_variables={
+            #     "DOMAIN_NAME": codebuild.BuildEnvironmentVariable(
+            #         value=domain_name
+            #     ),
+            #     "OWNER": codebuild.BuildEnvironmentVariable(
+            #         value=owner
+            #     ),
+            #     "REPO_NAME": codebuild.BuildEnvironmentVariable(
+            #         value=repo_name
+            #     ),
+            # },
             run_order=2,
-            environment_variables={
-                "TF_COMMAND": codebuild.BuildEnvironmentVariable(
-                    value="plan"
-                )
-            }
         )
-        plan_stage = lambda_pipeline.add_stage(stage_name="Plan")
-        plan_stage.add_action(plan_action)
+        deploy_stage = lambda_pipeline.add_stage(stage_name="Deploy")
+        deploy_stage.add_action(deploy_action)
+       
 
-        approval_action = codepipeline_actions.ManualApprovalAction(
-            action_name="Approve",
-            run_order = 3,
-        )
-        approval_stage = lambda_pipeline.add_stage(stage_name="Approval")
-        approval_stage.add_action(approval_action)
+        # plan_action = codepipeline_actions.CodeBuildAction(
+        #     action_name="Plan",
+        #     type = codepipeline_actions.CodeBuildActionType.BUILD,
+        #     project=lambda_codebuild_pipeline_project,
+        #     input=source_output,
+        #     run_order=2,
+        #     environment_variables={
+        #         "TF_COMMAND": codebuild.BuildEnvironmentVariable(
+        #             value="plan"
+        #         )
+        #     }
+        # )
+        # plan_stage = lambda_pipeline.add_stage(stage_name="Plan")
+        # plan_stage.add_action(plan_action)
 
-        apply_action = codepipeline_actions.CodeBuildAction(
-            action_name="Apply",
-            type = codepipeline_actions.CodeBuildActionType.BUILD,
-            project=lambda_codebuild_pipeline_project,
-            input=source_output,
-            run_order=4,
-            environment_variables={
-                "TF_COMMAND": codebuild.BuildEnvironmentVariable(
-                    value="apply -auto-approve"
-                )
-            }
-        )
-        apply_stage = lambda_pipeline.add_stage(stage_name="Apply")
-        apply_stage.add_action(apply_action)
+        # approval_action = codepipeline_actions.ManualApprovalAction(
+        #     action_name="Approve",
+        #     run_order = 3,
+        # )
+        # approval_stage = lambda_pipeline.add_stage(stage_name="Approval")
+        # approval_stage.add_action(approval_action)
+
+        # apply_action = codepipeline_actions.CodeBuildAction(
+        #     action_name="Apply",
+        #     type = codepipeline_actions.CodeBuildActionType.BUILD,
+        #     project=lambda_codebuild_pipeline_project,
+        #     input=source_output,
+        #     run_order=4,
+        #     environment_variables={
+        #         "TF_COMMAND": codebuild.BuildEnvironmentVariable(
+        #             value="apply -auto-approve"
+        #         )
+        #     }
+        # )
+        # apply_stage = lambda_pipeline.add_stage(stage_name="Apply")
+        # apply_stage.add_action(apply_action)
 
 
     def __init__(self, scope, id):
@@ -499,52 +522,52 @@ class ResiliencyFoundationStack(Stack):
         owner=self.account
         repo_name="res-ca-dev"
 
-        random_bucket_suffix = str(random.randint(100000,999999))
+        random_bucket_suffix = os.getlogin()
 
-        codepipeline_role = ResiliencyFoundationStack.createIAMRole(self,
+        codepipeline_role = ResiliencyFoundationPipelinesStack.createIAMRole(self,
             "resiliencyvr-package-build-pipeline-role",
             ["codepipeline.amazonaws.com","codebuild.amazonaws.com"],
         )
-        codebuild_package_role = ResiliencyFoundationStack.createIAMRole(self,
+        codebuild_package_role = ResiliencyFoundationPipelinesStack.createIAMRole(self,
             "resiliencyvr_codebuild_package_role",
             ["codebuild.amazonaws.com"],
         )
-        codebuild_lambda_role = ResiliencyFoundationStack.createIAMRole(self,
+        codebuild_lambda_role = ResiliencyFoundationPipelinesStack.createIAMRole(self,
             "resiliencyvr_codebuild_lambda_role",
             ["codebuild.amazonaws.com"],
         )
 
-        codeartifact_resources = ResiliencyFoundationStack.createCodeArtifactory(self,codebuild_package_role,codebuild_lambda_role,domain_name,repo_name)
+        codeartifact_resources = ResiliencyFoundationPipelinesStack.createCodeArtifactory(self,domain_name,repo_name)
         cfn_domain_res_ca_devckd = codeartifact_resources["cfn_domain_res_ca_devckd"]
         cfn_repository_res_ca_dev = codeartifact_resources["cfn_repository_res_ca_dev"]
 
-        codepipeline_bucket = ResiliencyFoundationStack.createCodePipelineBucket(self,random_bucket_suffix)
+        codepipeline_bucket = ResiliencyFoundationPipelinesStack.createCodePipelineBucket(self,random_bucket_suffix)
         codestar_connections_github_arn = "arn:aws:codestar-connections:region:account-id:connection/connection-id"
         codeartifact_domain_res_ca_dev_domain_arn = cfn_domain_res_ca_devckd.attr_arn
         codeartifact_repository_res_ca_dev_arn = cfn_repository_res_ca_dev.attr_arn
 
-        codepipeline_policy = ResiliencyFoundationStack.createCodePipelineIAMPolicy(self,
+        codepipeline_policy = ResiliencyFoundationPipelinesStack.createCodePipelineIAMPolicy(self,
             codepipeline_bucket,
             codestar_connections_github_arn
         )
         codepipeline_policy.attach_to_role(codepipeline_role)
 
-        codebuild_package_policy = ResiliencyFoundationStack.createCodeBuildPackageIAMPolicy(self,
+        codebuild_package_policy = ResiliencyFoundationPipelinesStack.createCodeBuildPackageIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
             codepipeline_bucket,
         )
         codebuild_package_policy.attach_to_role(codebuild_package_role)
 
-        codebuild_lambda_policy = ResiliencyFoundationStack.createCodeBuildLambdaIAMPolicy(self,
+        codebuild_lambda_policy = ResiliencyFoundationPipelinesStack.createCodeBuildLambdaIAMPolicy(self,
             codeartifact_repository_res_ca_dev_arn,
             codeartifact_domain_res_ca_dev_domain_arn,
             codepipeline_bucket,
         )
         codebuild_lambda_policy.attach_to_role(codebuild_lambda_role)
         
-        resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name)
-        lambda_codebuild_pipeline_project = ResiliencyFoundationStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,codepipeline_bucket,domain_name,owner,repo_name)
-        ResiliencyFoundationStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
-        ResiliencyFoundationStack.createLambdaPipeline(self,lambda_codebuild_pipeline_project)
+        resiliencyvr_codebuild_pipeline_project = ResiliencyFoundationPipelinesStack.createResiliencyVRCodeBuildPipelineProject(self,codebuild_package_role,codepipeline_bucket,domain_name,owner,repo_name)
+        lambda_codebuild_pipeline_project = ResiliencyFoundationPipelinesStack.createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,domain_name,owner,repo_name)
+        ResiliencyFoundationPipelinesStack.createResiliencyVRPipeline(self,resiliencyvr_codebuild_pipeline_project)
+        ResiliencyFoundationPipelinesStack.createLambdaPipeline(self,lambda_codebuild_pipeline_project)
         

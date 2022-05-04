@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from aws_cdk import core
+import aws_cdk as cdk
 
 from ResiliencyFoundationLambda.resiliency_foundation_lambda import ResiliencyFoundationLambdaStack
 
-app = core.App()
+app = cdk.App()
 ResiliencyFoundationLambdaStack(app,"resiliency-foundation-lambda")
 app.synth()
