@@ -7,6 +7,7 @@ from sqlite3 import Timestamp
 from ssl import _create_default_https_context
 from unicodedata import category
 import zipfile
+import random
 from zipfile import ZipFile
 import aws_cdk as core
 from aws_cdk import (
@@ -155,7 +156,7 @@ class ResiliencyFoundationLambdaStack(Stack):
             random_bucket_suffix = os.getlogin()
         except:
             random_bucket_suffix = random.rantint(100000,999999)
-            
+
         s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
         resiliency_lambda_role = ResiliencyFoundationLambdaStack.createIAMRole(self,"resiliency_lambda_role",["lambda.amazonaws.com"])
         resiliency_lambda_policy = ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
