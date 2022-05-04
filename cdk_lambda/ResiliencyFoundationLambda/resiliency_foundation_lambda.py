@@ -14,7 +14,6 @@ from aws_cdk import (
     aws_s3_deployment as s3deploy,
     aws_lambda as lambda_,
     aws_kms as kms,
-    pipelines as pipelines,
 )
 
 
