@@ -385,8 +385,8 @@ class ResiliencyFoundationPipelinesStack(Stack):
                             "aws codeartifact login --tool pip --domain $DOMAIN_NAME --domain-owner $OWNER --repository $REPO_NAME",
                             "npm install -g aws-cdk",  # Installs the cdk cli on Codebuild
                             "pip install -r cdk_lambda/requirements.txt",  # Instructs Codebuild to install required packages
+                            "ls"
                             "pip install aws-cdk-lib"
-                            "ls",
                             "cdk --version",
                             "cd cdk_lambda",
                             "npx cdk synth",
