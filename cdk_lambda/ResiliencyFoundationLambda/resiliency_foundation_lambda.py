@@ -1,43 +1,20 @@
 from cgi import test
-import random
-import email
-from email import policy
 from fileinput import filename
 from multiprocessing import Condition
 import os
-from pyclbr import Function
-import re
 from sqlite3 import Timestamp
 from ssl import _create_default_https_context
-import time
 from unicodedata import category
 import zipfile
 from zipfile import ZipFile
-import json
 import aws_cdk as core
 from aws_cdk import (
     aws_iam as iam,
     aws_s3 as s3,
-    #aws_s3_assets as s3_assets,
     aws_s3_deployment as s3deploy,
     aws_lambda as lambda_,
-    aws_sqs as sqs,
-    aws_events as events,
-    aws_servicecatalog as servicecatalog,
-    aws_cloudformation as cloudformation,
-    aws_events_targets as targets,
-    aws_sns as sns,
-    aws_sns_subscriptions as subscriptions,
-    aws_stepfunctions as sfn,
     aws_kms as kms,
-    aws_codeartifact as codeartifact,
-    aws_elasticsearch as elasticsearch,
-    aws_codebuild as codebuild,
-    aws_codepipeline as codepipeline,
     pipelines as pipelines,
-    aws_codepipeline_actions as codepipeline_actions,
-    aws_codecommit as codecommit,
-    Stack
 )
 
 
