@@ -2,6 +2,7 @@ from cgi import test
 from fileinput import filename
 from multiprocessing import Condition
 import os
+from random import random
 from sqlite3 import Timestamp
 from ssl import _create_default_https_context
 from unicodedata import category
@@ -150,8 +151,11 @@ class ResiliencyFoundationLambdaStack(Stack):
     
     def __init__(self, scope, id):
         super().__init__(scope, id)
-        random_bucket_suffix = os.getlogin()
-
+        try:
+            random_bucket_suffix = os.getlogin()
+        except:
+            random_bucket_suffix = random.rantint(100000,999999)
+            
         s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
         resiliency_lambda_role = ResiliencyFoundationLambdaStack.createIAMRole(self,"resiliency_lambda_role",["lambda.amazonaws.com"])
         resiliency_lambda_policy = ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
