@@ -270,8 +270,7 @@ class ResiliencyFoundationPipelinesStack(Stack):
                     iam.Effect.ALLOW,
                     actions= [
                         "kms:*",
-                        "cloudformation:*",
-                        "ssm:*"
+                        "cloudformation:*"
                     ],
                     resources=[
                         "*"
@@ -316,6 +315,16 @@ class ResiliencyFoundationPipelinesStack(Stack):
                         "lambda:GetFunctionCodeSigningConfig",
                         "lambda:GetCodeSigningConfig",
                         "lambda:DeleteFunction"
+                    ],
+                    resources=[
+                        "*"
+                    ],
+                ),
+                #Needed to add */* since this is a POC IAC role
+                iam.PolicyStatement(effect= 
+                    iam.Effect.ALLOW,
+                    actions= [
+                        "*"
                     ],
                     resources=[
                         "*"
