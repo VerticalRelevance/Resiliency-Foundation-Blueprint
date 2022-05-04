@@ -14,11 +14,10 @@ from aws_cdk import (
     aws_s3_deployment as s3deploy,
     aws_lambda as lambda_,
     aws_kms as kms,
+    Stack
 )
 
-
-class ResiliencyFoundationLambdaStack(core.Stack):
-  
+class ResiliencyFoundationLambdaStack(Stack):
     def createIAMRole(self,name,service_principal_list):
         composite_principal = iam.CompositePrincipal(iam.ServicePrincipal(service_principal_list[0]))
         if len(service_principal_list) > 1:
