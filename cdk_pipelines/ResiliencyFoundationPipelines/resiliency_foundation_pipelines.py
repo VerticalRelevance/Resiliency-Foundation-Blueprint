@@ -388,7 +388,7 @@ class ResiliencyFoundationPipelinesStack(Stack):
                             "pip install aws-cdk-lib",
                             "cdk --version",
                             "cd cdk_lambda",
-                            "npx cdk synth",
+                            "npx cdk deploy",
 
                         ]
                     }
