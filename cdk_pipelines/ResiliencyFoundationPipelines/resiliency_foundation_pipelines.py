@@ -386,7 +386,8 @@ class ResiliencyFoundationPipelinesStack(Stack):
                             "npm install -g aws-cdk",  # Installs the cdk cli on Codebuild
                             "pip install -r cdk_lambda/requirements.txt",  # Instructs Codebuild to install required packages
                             "ls",
-                            "pip install aws-cdk-lib",
+                            "echo 'pip install aws-cdk-lib' >> temp.py",
+                            "py temp.py",
                             "cdk --version",
                             "cd cdk_lambda",
                             "npx cdk synth",
