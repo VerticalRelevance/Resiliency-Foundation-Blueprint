@@ -9,6 +9,7 @@ from unicodedata import category
 import zipfile
 import random
 from zipfile import ZipFile
+import yaml
 import aws_cdk as core
 from aws_cdk import (
     aws_iam as iam,
@@ -16,6 +17,7 @@ from aws_cdk import (
     aws_s3_deployment as s3deploy,
     aws_lambda as lambda_,
     aws_kms as kms,
+    aws_ssm as ssm,
     Stack
 )
 
@@ -150,6 +152,35 @@ class ResiliencyFoundationLambdaStack(Stack):
 
         return lambda_function
     
+    def uploadSSMDocument(self):
+        
+        with open('ssm/StressMemory.yml') as file:
+            try:
+                ssm_doc = yaml.safe_load(file)   
+            except yaml.YAMLError as e:
+                print(e)
+       
+            ssm_document=ssm.CfnDocument(
+                self,'StressMemory',
+                name="StressMemory",
+                content=ssm_doc,
+                document_format="YAML",
+                document_type="Command"
+            )
+
+            return ssm_document
+
+    def uploadExperiments(self, random_bucket_suffix):
+
+        experiment_bucket = s3.Bucket(self, "resiliency-experiment-bucket-"+random_bucket_suffix, bucket_name="resiliency-experiment-bucket"+random_bucket_suffix,access_control=s3.BucketAccessControl.PRIVATE)
+
+        experiment_upload = s3deploy.BucketDeployment(self, "ExperimentFiles",
+            sources=[s3deploy.Source.asset("./experiments")],
+            destination_bucket=experiment_bucket,
+        )
+
+        return experiment_bucket, experiment_upload
+        
     def __init__(self, scope, id):
         super().__init__(scope, id)
         try:
@@ -165,4 +196,7 @@ class ResiliencyFoundationLambdaStack(Stack):
         code_upload_resources = ResiliencyFoundationLambdaStack.uploadLambdaCode(self,random_bucket_suffix)
         code_upload = code_upload_resources["code_upload"]
         lambda_code_bucket = code_upload_resources["lambda_code_bucket"]
+        experiment_resources = ResiliencyFoundationLambdaStack.uploadExperiments(self,random_bucket_suffix)
+
         lambda_function = ResiliencyFoundationLambdaStack.createFunction(self,resiliency_lambda_role,lambda_code_bucket,code_upload)
+        ssm_document = ResiliencyFoundationLambdaStack.uploadSSMDocument(self)
