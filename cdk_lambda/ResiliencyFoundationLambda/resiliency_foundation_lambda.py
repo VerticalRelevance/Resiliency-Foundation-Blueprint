@@ -41,7 +41,7 @@ class ResiliencyFoundationLambdaStack(Stack):
         )
         return key
 
-    def createResiliencyLambdaIAMPolicy(self):
+    def createResiliencyLambdaIAMPolicy(self, random_bucket_suffix):
         resiliency_lambda_policy = iam.ManagedPolicy(
             self,
             "resiliency_lambda_policy",
@@ -56,8 +56,8 @@ class ResiliencyFoundationLambdaStack(Stack):
                     effect=iam.Effect.ALLOW,
                     actions=["s3:GetObject", "s3:Listbucket", "s3:PutObject"],
                     resources=[
-                        "arn:aws:s3:::resiliency-testing-experiments",
-                        "arn:aws:s3:::resiliency-testing-experiments/*",
+                        "arn:aws:s3:::resiliency-experiment-bucket-" + random_bucket_suffix,
+                        "arn:aws:s3:::resiliency-experiment-bucket-" + random_bucket_suffix + "/*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -202,7 +202,7 @@ class ResiliencyFoundationLambdaStack(Stack):
             self, "resiliency_lambda_role", ["lambda.amazonaws.com"]
         )
         resiliency_lambda_policy = (
-            ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
+            ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self, random_bucket_suffix)
         )
         resiliency_lambda_policy.attach_to_role(resiliency_lambda_role)
 
