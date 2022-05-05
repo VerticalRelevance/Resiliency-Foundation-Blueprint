@@ -202,7 +202,7 @@ class ResiliencyFoundationLambdaStack(Stack):
 
         domain_name="res-ca-devckd"
         #owner=core.Token.as_string(self.account)
-        owner=core.CfnOutput(self, "account_id", value=self.account).value
+        owner=core.CfnOutput(self, "account_id", value=self.account).to_string()
         repo_name="res-ca-dev"
 
         s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
