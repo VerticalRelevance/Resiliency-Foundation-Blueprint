@@ -56,8 +56,8 @@ class ResiliencyFoundationLambdaStack(Stack):
                     effect=iam.Effect.ALLOW,
                     actions=["s3:GetObject", "s3:Listbucket", "s3:PutObject"],
                     resources=[
-                        "arn:aws:s3:::resiliency-experiment-bucket-" + random_bucket_suffix,
-                        "arn:aws:s3:::resiliency-experiment-bucket-" + random_bucket_suffix + "/*",
+                        "arn:aws:s3:::resiliency-experiment-bucket" + random_bucket_suffix,
+                        "arn:aws:s3:::resiliency-experiment-bucket" + random_bucket_suffix + "/*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -180,6 +180,7 @@ class ResiliencyFoundationLambdaStack(Stack):
             "ExperimentFiles",
             sources=[s3deploy.Source.asset("./experiments")],
             destination_bucket=experiment_bucket,
+            content_type = "application/x-yaml",
         )
 
         return experiment_bucket, experiment_upload
