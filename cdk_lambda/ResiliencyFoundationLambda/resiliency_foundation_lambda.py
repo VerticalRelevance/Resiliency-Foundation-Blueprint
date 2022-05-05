@@ -126,7 +126,7 @@ class ResiliencyFoundationLambdaStack(Stack):
                                             os.path.join(path, '..')))
         
         with zipfile.ZipFile('resiliency_code.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipdir('../resiliency_code', zipf)
+            zipdir('../resiliency_code/lambda', zipf)
 
         ZipFile("resiliency_code_zipped.zip", mode='w').write("resiliency_code.zip")
 
