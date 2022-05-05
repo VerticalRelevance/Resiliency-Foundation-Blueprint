@@ -149,7 +149,7 @@ class ResiliencyFoundationLambdaStack(Stack):
             function_name="ResiliencyLambdaFunction",
             role=resiliency_lambda_role,
             runtime=lambda_.Runtime.PYTHON_3_9,
-            handler="resiliency_foundation.lambda_handler",
+            handler="handler.handler",
             code=lambda_.Code.from_bucket(
                 bucket=lambda_code_bucket,
                 key="resiliency_code.zip"
