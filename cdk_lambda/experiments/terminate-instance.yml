@@ -1,0 +1,19 @@
+version: 1.0.0
+title: Terminate EC2 Instance
+description: This experiment will Terminate an EC2 instance
+tags:
+  - terminate-ec2
+configuration:
+  test_instance_tag_key: 'tag:Name'
+  test_instance_tag_value: '*.resiliency.local'
+  aws_region: 'us-east-1'
+
+method:
+  - type: action
+    name: Terminate an EC2 instance
+    provider:
+      type: python
+      module: chaosaws.ec2.actions
+      func: terminate_instance
+      arguments:
+        filters: [ { 'Name': '${test_instance_tag_key}', 'Value': '${test_instance_tag_value}' } ]

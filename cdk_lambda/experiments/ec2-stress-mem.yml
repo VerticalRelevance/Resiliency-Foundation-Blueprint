@@ -1,0 +1,26 @@
+version: 1.0.0
+title: EC2 High Memory Utilization
+description: This Experiment will stress an EC2 instance by overutilizing its memory
+tags:
+  - stress-memory
+configuration:
+  aws_region: 'us-east-1'
+  test_instance_tag_key: 'tag:Name'
+  test_instance_tag_value: '*.resiliency.local'
+
+method: 
+  - type: action
+    name: stress-instance-memory
+    provider:
+      type: python
+      module: resiliencyvr.ec2.actions
+      func: stress_memory
+      arguments:
+        targets:
+        test_target_type: 'RANDOM'
+        tag_key: ${test_instance_tag_key}
+        tag_value: ${test_instance_tag_value}
+        region: ${aws_region}
+        duration: '300'
+        number_of_workers: '1'
+        memory_percentage_per_worker: '99'
