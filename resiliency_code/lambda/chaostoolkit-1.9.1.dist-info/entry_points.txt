@@ -1,0 +1,3 @@
+[console_scripts]
+chaos = chaostoolkit.__main__:cli
+

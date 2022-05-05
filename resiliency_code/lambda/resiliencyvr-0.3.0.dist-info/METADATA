@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: resiliencyvr
+Version: 0.3.0
+Summary: Code for the Vertical Relevance Resiliency Framework
+Home-page: https://github.com/VerticalRelevance/resiliency-framework-code
+Author: Vertical Relevance
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Dist: boto3
+Requires-Dist: chaostoolkit
+Requires-Dist: chaostoolkit-aws
+Requires-Dist: chaostoolkit-kubernetes
+
+UNKNOWN
+
