@@ -141,6 +141,8 @@ class ResiliencyFoundationLambdaStack(Stack):
             code=lambda_.Code.from_bucket(
                 bucket=lambda_code_bucket, key="resiliency_code.zip"
             ),
+            memory_size   = 1024,
+            timeout       = 1000
         )
 
         lambda_function.node.add_dependency(code_upload)
