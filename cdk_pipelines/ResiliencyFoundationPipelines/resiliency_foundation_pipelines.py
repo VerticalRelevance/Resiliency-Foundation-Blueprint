@@ -382,7 +382,7 @@ class ResiliencyFoundationPipelinesStack(Stack):
                 )
             ),
 
-            build_spec=codebuild.BuildSpec.from_source_filename("cdk/buildspec-resiliencyvr.yml")
+            build_spec=codebuild.BuildSpec.from_source_filename("cdk_pipelines/buildspec-resiliencyvr.yml")
         )
         return resiliencyvr_project
     def createLambdaCodeBuildPipelineProject(self,codebuild_lambda_role,domain_name,owner,repo_name):
