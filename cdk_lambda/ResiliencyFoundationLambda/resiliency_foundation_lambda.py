@@ -10,6 +10,7 @@ import zipfile
 import random
 from zipfile import ZipFile
 import yaml
+import shutil
 import aws_cdk as core
 from aws_cdk import (
     aws_iam as iam,
@@ -104,7 +105,18 @@ class ResiliencyFoundationLambdaStack(Stack):
 
         return resiliency_lambda_policy
    
-    def uploadLambdaCode(self,random_bucket_suffix):
+    def uploadLambdaCode(self,random_bucket_suffix,domain_name,owner,repo_name):
+        resiliency_reqs_path="../resiliency_code/lambda/requirements.txt"
+        # os.system("pip install -r "+resiliency_reqs_path)
+        # with open(resiliency_reqs_path) as f:
+        #     lines = f.readlines()
+        #     print(lines
+
+        print("aws codeartifact login --tool pip --domain {} --domain-owner {} --repository {}".format(domain_name,owner,repo_name))
+        os.system("aws codeartifact login --tool pip --domain {} --domain-owner {} --repository {}".format(domain_name,owner,repo_name))
+        print("Attempting to run pip requirements below:")
+        os.system("pip install -r {} -t ../resiliency_code/lambda".format(resiliency_reqs_path))
+               
         def zipdir(path, ziph):
             # ziph is zipfile handle
             for root, dirs, files in os.walk(path):
@@ -188,12 +200,17 @@ class ResiliencyFoundationLambdaStack(Stack):
         except:
             random_bucket_suffix = str(random.randint(100000,999999))
 
+        domain_name="res-ca-devckd"
+        #owner=core.Token.as_string(self.account)
+        owner=core.CfnOutput(self, "account_id", value=self.account).value
+        repo_name="res-ca-dev"
+
         s3_key = ResiliencyFoundationLambdaStack.createKMSKey(self,"s3_key","Customer managed KMS key to encrypt S3 resources")
         resiliency_lambda_role = ResiliencyFoundationLambdaStack.createIAMRole(self,"resiliency_lambda_role",["lambda.amazonaws.com"])
         resiliency_lambda_policy = ResiliencyFoundationLambdaStack.createResiliencyLambdaIAMPolicy(self)
         resiliency_lambda_policy.attach_to_role(resiliency_lambda_role)
         
-        code_upload_resources = ResiliencyFoundationLambdaStack.uploadLambdaCode(self,random_bucket_suffix)
+        code_upload_resources = ResiliencyFoundationLambdaStack.uploadLambdaCode(self,random_bucket_suffix,domain_name,owner,repo_name)
         code_upload = code_upload_resources["code_upload"]
         lambda_code_bucket = code_upload_resources["lambda_code_bucket"]
         experiment_resources = ResiliencyFoundationLambdaStack.uploadExperiments(self,random_bucket_suffix)
