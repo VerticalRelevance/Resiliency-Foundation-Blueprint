@@ -118,15 +118,15 @@ class ResiliencyFoundationLambdaStack(Stack):
         os.system("pip install -r {} -t ../resiliency_code/lambda".format(resiliency_reqs_path))
                
         def zipdir(path, ziph):
+            length = len(path)
             # ziph is zipfile handle
             for root, dirs, files in os.walk(path):
+                folder = root[length:] # path without "parent"
                 for file in files:
-                    ziph.write(os.path.join(root, file), 
-                            os.path.relpath(os.path.join(root, file), 
-                                            os.path.join(path, '..')))
+                    ziph.write(os.path.join(root, file), os.path.join(folder, file))
         
         with zipfile.ZipFile('resiliency_code.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipdir('../resiliency_code/lambda', zipf)
+            zipdir('../resiliency_code/lambda/', zipf)
 
         ZipFile("resiliency_code_zipped.zip", mode='w').write("resiliency_code.zip")
 
