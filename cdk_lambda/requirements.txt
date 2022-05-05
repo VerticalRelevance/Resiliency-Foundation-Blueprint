@@ -98,7 +98,7 @@ toml==0.10.2
 typing-extensions==3.10.0.2
 tzdata==2021.5
 tzlocal==4.1
-urllib3==1.26.2
+urllib3==1.26.5
 wrapt==1.12.1
 yfinance==0.1.55
 zipfile36==0.1.3
