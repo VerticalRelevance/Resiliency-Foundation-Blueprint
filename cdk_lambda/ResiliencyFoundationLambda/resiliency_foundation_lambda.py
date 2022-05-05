@@ -115,7 +115,7 @@ class ResiliencyFoundationLambdaStack(Stack):
         print("aws codeartifact login --tool pip --domain {} --domain-owner {} --repository {}".format(domain_name,owner,repo_name))
         os.system("aws codeartifact login --tool pip --domain {} --domain-owner {} --repository {}".format(domain_name,owner,repo_name))
         print("Attempting to run pip requirements below:")
-        os.system("pip install -r {} -t ../resiliency_code/lambda".format(resiliency_reqs_path))
+        os.system("pip install -r {} -t ../resiliency_code/lambda/libraries".format(resiliency_reqs_path))
                
         def zipdir(path, ziph):
             # ziph is zipfile handle
@@ -126,7 +126,7 @@ class ResiliencyFoundationLambdaStack(Stack):
                                             os.path.join(path, '..')))
         
         with zipfile.ZipFile('resiliency_code.zip', 'w', zipfile.ZIP_DEFLATED) as zipf:
-            zipdir('../resiliency_code', zipf)
+            zipdir('../resiliency_code/lambda', zipf)
 
         ZipFile("resiliency_code_zipped.zip", mode='w').write("resiliency_code.zip")
 
@@ -135,6 +135,8 @@ class ResiliencyFoundationLambdaStack(Stack):
             sources=[s3deploy.Source.asset("resiliency_code_zipped.zip")],
             destination_bucket=lambda_code_bucket,
         )
+
+        shutil.rmtree("../resiliency_code/lambda/libraries")
 
         return{
             "lambda_code_bucket" : lambda_code_bucket,
