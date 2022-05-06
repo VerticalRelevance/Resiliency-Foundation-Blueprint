@@ -1,6 +1,5 @@
-
 # Resiliency Testing Framework
-The Resiliency Testing Framework is a framework to automate resiliency tests in an AWS account. This is accomplished through Chaostoolkit, Python, Terraform and AWS Lambda. This guide is intended to walk a user through the installation process and general use guidelines for the Resiliency Testing repository. This repository is used to house the actions and probes that are referenced by experiments.
+The Resiliency Testing Framework is a framework to automate resiliency tests in an AWS account. This is accomplished through Chaostoolkit, Python, CDK, and AWS Lambda. This guide is intended to walk a user through the installation process and general use guidelines for the Resiliency Testing repository. This repository is used to house the actions and probes that are referenced by experiments.
 
 ## Resiliency Testing Framework Architecture
 ![image](https://user-images.githubusercontent.com/36248052/161159836-90ba3d9c-4371-480a-b571-25d7228f9f1f.png)
@@ -182,9 +181,8 @@ return response
 We then return the response from boto3 as the result of the action. This concludes the body of the function. We have now written our first action to go along with an experiment! Please refer to [Resiliency Testing Experiments](https://github.com/VerticalRelevance/resiliency-framework-experiments.git) repository to learn about Experiment creation in YAML.
 
 ## Deployment
-Deploy using the CI/CD pipeline of your choice. An example AWS CodePipeline-based build is included in this repository under ./terraform/automation
+Deploy using the CI/CD pipeline of your choice. An example CDK and AWS CodePipeline-based build is included in this repository under ./cdk_pipelines. To start, simply issue `cdk deploy` in the `cdk_pipelines` directory of this repository.
 
 ## Building and using the resiliency package
-To utilize the code written in this repository in experiments, you will be required to build and upload the package `resiliencyvr` to a private PyPi repository, or have it built and have the pip command in the lambda Terraform point to it. A CI/CD pipeline to build the package and upload it to AWS CodeArtifact is under ./terraform/automation.
-
+To utilize the code written in this repository in experiments, you will be required to build and upload the package `resiliencyvr` to a private PyPi repository, or have it built and have the pip command in the Lambda CDK point to it. A CI/CD pipeline to build the package and upload it to AWS CodeArtifact is under ./cdk_pipelines/ResiliencyAutomationPipelines.
  
