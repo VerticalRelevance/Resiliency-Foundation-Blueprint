@@ -1,6 +1,5 @@
 import io
 import logging
-import os
 import sys
 
 from resiliencyvr.s3.shared import get_object, create_presigned_url
@@ -28,15 +27,9 @@ def handler(event, context):
   """
   log_capture, report_capture = __capture_experiment_logs()
 
-  # PRIOR TODO: move chaos python packages into here (Lambda runner)
-    # include as part of deployment-package.zip
-
   experiment_source = event.get('experiment_source')
   if experiment_source:
     logger.info('ChaosToolkit attempting to load experiment: %s', experiment_source)
-
-  # TODO: calculate bucket_name programmatically:
-  # e.g.: resiliency-<app_name>-<env>-<region>
 
   try:
     get_object(event.get('bucket_name'), experiment_source, event.get('configuration', {}))
