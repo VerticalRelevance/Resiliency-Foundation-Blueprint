@@ -1,4 +1,3 @@
-
 # Resiliency Testing Framework
 The Resiliency Testing Framework is a framework to automate resiliency tests in an AWS account. This is accomplished through Chaostoolkit, Python, CDK, and AWS Lambda. This guide is intended to walk a user through the installation process and general use guidelines for the Resiliency Testing repository. This repository is used to house the actions and probes that are referenced by experiments.
 
@@ -186,5 +185,4 @@ Deploy using the CI/CD pipeline of your choice. An example CDK and AWS CodePipel
 
 ## Building and using the resiliency package
 To utilize the code written in this repository in experiments, you will be required to build and upload the package `resiliencyvr` to a private PyPi repository, or have it built and have the pip command in the Lambda CDK point to it. A CI/CD pipeline to build the package and upload it to AWS CodeArtifact is under ./cdk_pipelines/ResiliencyAutomationPipelines.
-
  
