@@ -59,7 +59,7 @@ beautifulsoup4==4.10.0
 boto3==1.18.23
 botocore==1.21.23
 cattrs==1.8.0
-certifi==2020.12.5
+certifi==2022.12.7
 cfn-response==0.0.4
 cfnresponse==1.1.2
 chardet==4.0.0
